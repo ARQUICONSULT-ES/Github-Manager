@@ -182,22 +182,16 @@ export function RepoCard({ repo, preloadedInfo, skipIndividualFetch = false }: R
         throw new Error(data.error || "Error al ejecutar workflow");
       }
 
-      // Mostrar banner de éxito con countdown
+      // Mostrar banner y abrir ventana después de 3 segundos
       setShowSuccessBanner(true);
       setCountdown(3);
       
-      const countdownInterval = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(countdownInterval);
-            // Abrir ventana de workflows
-            window.open(`https://github.com/${repo.full_name}/actions`, "_blank");
-            setShowSuccessBanner(false);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+      setTimeout(() => setCountdown(2), 1000);
+      setTimeout(() => setCountdown(1), 2000);
+      setTimeout(() => {
+        setShowSuccessBanner(false);
+        window.open(`https://github.com/${repo.full_name}/actions`, "_blank");
+      }, 3000);
 
       // Refrescar el estado del workflow después de un momento
       setTimeout(() => {
