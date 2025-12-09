@@ -62,6 +62,12 @@ export async function POST(request: NextRequest) {
     const updatedContent = {
       ...currentContent,
       appDependencyProbingPaths,
+      // Asegurar que installApps incluye dependencies/ si no está
+      installApps: currentContent.installApps && Array.isArray(currentContent.installApps)
+        ? currentContent.installApps.includes("dependencies/")
+          ? currentContent.installApps
+          : [...currentContent.installApps, "dependencies/"]
+        : ["dependencies/"],
     };
 
     // 3. Obtener el SHA del commit más reciente en la rama base

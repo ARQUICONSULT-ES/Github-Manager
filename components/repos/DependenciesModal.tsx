@@ -11,6 +11,13 @@ interface AppDependencyProbingPath {
   projects?: string;
 }
 
+interface FileDependency {
+  name: string;
+  path: string;
+  sha: string;
+  size: number;
+}
+
 interface AppDependency {
   id: string;
   name: string;
@@ -26,6 +33,40 @@ interface DependenciesModalProps {
   allRepos: GitHubRepository[];
 }
 
+const LoadingSpinner = ({ text = "Cargando..." }: { text?: string }) => (
+  <div className="flex items-center justify-center h-32">
+    <div className="flex items-center gap-2 text-gray-400">
+      <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+      </svg>
+      <span className="text-sm">{text}</span>
+    </div>
+  </div>
+);
+
+const EmptyState = ({ message, icon }: { message: string; icon: React.ReactNode }) => (
+  <div className="flex items-center justify-center h-32">
+    <div className="text-center">
+      {icon}
+      <p className="text-sm text-gray-500">{message}</p>
+    </div>
+  </div>
+);
+
+const formatFileSize = (size: number) => 
+  size >= 1024 * 1024 
+    ? `${(size / (1024 * 1024)).toFixed(2)} MB`
+    : `${(size / 1024).toFixed(2)} KB`;
+
+type SaveStep = 
+  | { status: 'idle' }
+  | { status: 'updating-settings'; message: 'Actualizando settings.json...' }
+  | { status: 'uploading-files'; message: string; current: number; total: number }
+  | { status: 'deleting-files'; message: string; current: number; total: number }
+  | { status: 'creating-pr'; message: 'Creando Pull Request...' }
+  | { status: 'completed'; message: 'Pull Request creado exitosamente' };
+
 export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: DependenciesModalProps) {
   const [settingsData, setSettingsData] = useState<{
     appDependencyProbingPaths: AppDependencyProbingPath[];
@@ -38,26 +79,52 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [appJsonError, setAppJsonError] = useState<string | null>(null);
   const [editedDependencies, setEditedDependencies] = useState<AppDependencyProbingPath[]>([]);
+  const [fileDependencies, setFileDependencies] = useState<FileDependency[]>([]);
+  const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
+  const [filesToDelete, setFilesToDelete] = useState<string[]>([]);
   const [showAddRepoModal, setShowAddRepoModal] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [showAddFileModal, setShowAddFileModal] = useState(false);
+  const [saveStep, setSaveStep] = useState<SaveStep>({ status: 'idle' });
   const [branches, setBranches] = useState<string[]>([]);
   const [selectedBranch, setSelectedBranch] = useState("main");
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
 
+  const isSaving = saveStep.status !== 'idle' && saveStep.status !== 'completed';
+
   useEffect(() => {
-    if (isOpen) {
-      // Reset estados al abrir el modal para forzar recarga
-      setSettingsData(null);
-      setAppJsonData(null);
-      setSettingsError(null);
-      setAppJsonError(null);
-      setEditedDependencies([]);
-      
-      fetchSettings();
-      fetchAppJson();
-      fetchBranches();
-    }
+    if (!isOpen) return;
+    
+    // Reset estados al abrir el modal
+    setSettingsData(null);
+    setAppJsonData(null);
+    setSettingsError(null);
+    setAppJsonError(null);
+    setEditedDependencies([]);
+    setFileDependencies([]);
+    setFilesToUpload([]);
+    setFilesToDelete([]);
+    setSaveStep({ status: 'idle' });
+    
+    fetchSettings();
+    fetchAppJson();
+    fetchBranches();
+    fetchFileDependencies();
   }, [isOpen, owner, repo]);
+
+  // Bloquear cierre con Escape mientras se está guardando
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isSaving) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
+  }, [isOpen, isSaving]);
 
   const fetchSettings = async () => {
     setIsLoadingSettings(true);
@@ -65,17 +132,11 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
     try {
       const res = await fetch(
         `/api/github/file-content?owner=${owner}&repo=${repo}&path=.AL-Go/settings.json&ref=main`,
-        {
-          cache: "no-store",
-          headers: {
-            "Cache-Control": "no-cache",
-          },
-        }
+        { cache: "no-store" }
       );
       
       if (res.status === 404) {
         setSettingsError("Archivo .AL-Go/settings.json no encontrado");
-        setSettingsData(null);
       } else if (res.ok) {
         const data = await res.json();
         setSettingsData(data.content);
@@ -95,17 +156,11 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
     try {
       const res = await fetch(
         `/api/github/file-content?owner=${owner}&repo=${repo}&path=app.json&ref=main`,
-        {
-          cache: "no-store",
-          headers: {
-            "Cache-Control": "no-cache",
-          },
-        }
+        { cache: "no-store" }
       );
       
       if (res.status === 404) {
         setAppJsonError("Archivo app.json no encontrado");
-        setAppJsonData(null);
       } else if (res.ok) {
         const data = await res.json();
         setAppJsonData(data.content);
@@ -122,32 +177,33 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
   const fetchBranches = async () => {
     setIsLoadingBranches(true);
     try {
-      const res = await fetch(
-        `/api/github/branches?owner=${owner}&repo=${repo}`,
-        {
-          cache: "no-store",
-          headers: {
-            "Cache-Control": "no-cache",
-          },
-        }
-      );
+      const res = await fetch(`/api/github/branches?owner=${owner}&repo=${repo}`, { cache: "no-store" });
       
       if (res.ok) {
         const data = await res.json();
         setBranches(data.branches);
-        // Si main existe, establecerlo como seleccionado
-        if (data.branches.includes("main")) {
-          setSelectedBranch("main");
-        } else if (data.branches.length > 0) {
-          setSelectedBranch(data.branches[0]);
-        }
-      } else {
-        console.error("Error al obtener branches");
+        setSelectedBranch(data.branches.includes("main") ? "main" : data.branches[0] || "main");
       }
     } catch (error) {
       console.error("Error fetching branches:", error);
     } finally {
       setIsLoadingBranches(false);
+    }
+  };
+
+  const fetchFileDependencies = async () => {
+    try {
+      const res = await fetch(
+        `/api/github/list-dependencies?owner=${owner}&repo=${repo}&ref=main`,
+        { cache: "no-store" }
+      );
+      
+      if (res.ok) {
+        const data = await res.json();
+        setFileDependencies(data.files || []);
+      }
+    } catch (error) {
+      console.error("Error fetching file dependencies:", error);
     }
   };
 
@@ -169,6 +225,22 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
     setEditedDependencies(updated);
   };
 
+  const handleRemoveFileDependency = (fileName: string) => {
+    setFilesToDelete([...filesToDelete, fileName]);
+    setFileDependencies(fileDependencies.filter(f => f.name !== fileName));
+  };
+
+  const handleAddFileDependencies = (files: File[]) => {
+    setFilesToUpload([...filesToUpload, ...files]);
+    const newFiles: FileDependency[] = files.map(file => ({
+      name: file.name,
+      path: `dependencies/${file.name}`,
+      sha: "pending",
+      size: file.size,
+    }));
+    setFileDependencies([...fileDependencies, ...newFiles]);
+  };
+
   const handleAddDependencies = (selectedRepos: GitHubRepository[], version: string, releaseStatus: string) => {
     const newDeps: AppDependencyProbingPath[] = selectedRepos.map(repo => ({
       repo: repo.html_url,
@@ -182,8 +254,10 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
   };
 
   const handleSaveChanges = async () => {
-    setIsSaving(true);
     try {
+      // Paso 1: Actualizar settings.json
+      setSaveStep({ status: 'updating-settings', message: 'Actualizando settings.json...' });
+      
       const res = await fetch("/api/github/update-settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -201,23 +275,103 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
       }
 
       const data = await res.json();
+      const branchName = data.branch;
+
+      // Paso 2: Subir archivos
+      if (filesToUpload.length > 0) {
+        for (let i = 0; i < filesToUpload.length; i++) {
+          const file = filesToUpload[i];
+          setSaveStep({ 
+            status: 'uploading-files', 
+            message: `Subiendo ${file.name}...`,
+            current: i + 1,
+            total: filesToUpload.length
+          });
+
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("owner", owner);
+          formData.append("repo", repo);
+          formData.append("branch", branchName);
+
+          const uploadRes = await fetch("/api/github/upload-dependency", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!uploadRes.ok) {
+            const errorData = await uploadRes.json();
+            throw new Error(`Error subiendo ${file.name}: ${errorData.error}`);
+          }
+        }
+      }
+
+      // Paso 3: Eliminar archivos
+      if (filesToDelete.length > 0) {
+        for (let i = 0; i < filesToDelete.length; i++) {
+          const fileName = filesToDelete[i];
+          setSaveStep({ 
+            status: 'deleting-files', 
+            message: `Eliminando ${fileName}...`,
+            current: i + 1,
+            total: filesToDelete.length
+          });
+
+          const deleteRes = await fetch("/api/github/delete-dependency", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ owner, repo, branch: branchName, fileName }),
+          });
+
+          if (!deleteRes.ok) {
+            const errorData = await deleteRes.json();
+            console.warn(`Error eliminando ${fileName}: ${errorData.error}`);
+          }
+        }
+      }
       
-      // Abrir PR en nueva pestaña
+      // Paso 4: Crear PR
+      setSaveStep({ status: 'creating-pr', message: 'Creando Pull Request...' });
+      await new Promise(resolve => setTimeout(resolve, 500)); // Pequeña pausa para que se vea el mensaje
+      
+      setSaveStep({ status: 'completed', message: 'Pull Request creado exitosamente' });
+      
+      // Abrir PR y cerrar modal después de un breve momento
       window.open(data.pullRequestUrl, '_blank');
-      
-      // Cerrar el modal
-      onClose();
+      setTimeout(() => {
+        setSaveStep({ status: 'idle' });
+        onClose();
+      }, 1000);
     } catch (error) {
       alert(error instanceof Error ? error.message : "Error al guardar cambios");
-    } finally {
-      setIsSaving(false);
+      setSaveStep({ status: 'idle' });
     }
   };
 
   if (!isOpen) return null;
 
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      if (isSaving) {
+        // No hacer nada, el modal está bloqueado
+        return;
+      }
+      onClose();
+    }
+  };
+
+  const handleClose = () => {
+    if (isSaving) {
+      return; // Bloquear cierre
+    }
+    onClose();
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div 
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      onClick={handleBackdropClick}
+    >
       <div className="bg-gray-800 rounded-lg shadow-xl border border-gray-700 w-[90vw] max-w-6xl max-h-[85vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-700">
@@ -228,9 +382,10 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
             Dependencias CI/CD - {repo}
           </h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             disabled={isSaving}
-            className="text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+            className="text-gray-400 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title={isSaving ? "Procesando cambios..." : "Cerrar"}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -254,39 +409,53 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
             
             <div className="flex-1 overflow-y-auto p-4">
               {isLoadingSettings ? (
-                <div className="flex items-center justify-center h-32">
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    <span className="text-sm">Cargando...</span>
-                  </div>
-                </div>
+                <LoadingSpinner />
               ) : settingsError ? (
-                <div className="flex items-center justify-center h-32">
-                  <div className="text-center">
+                <EmptyState 
+                  message={settingsError}
+                  icon={
                     <svg className="w-12 h-12 text-gray-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <p className="text-sm text-gray-500">{settingsError}</p>
-                  </div>
-                </div>
-              ) : editedDependencies.length > 0 ? (
+                  }
+                />
+              ) : editedDependencies.length > 0 || fileDependencies.length > 0 ? (
                 <div className="space-y-3">
+                  {/* Dependencias de repositorio */}
                   {editedDependencies.map((dep, index) => (
                     <div 
-                      key={index}
+                      key={`repo-${index}`}
                       className="bg-gray-900 border border-gray-700 rounded-lg p-3 hover:border-gray-600 transition-colors"
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-medium text-blue-400 truncate">
-                            {getRepoName(dep.repo)}
-                          </h4>
-                          <p className="text-xs text-gray-500 truncate mt-0.5" title={dep.repo}>
-                            {dep.repo}
-                          </p>
+                        <div className="flex items-start gap-2 flex-1 min-w-0">
+                          <svg className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                          </svg>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-medium text-blue-400 truncate">
+                              {getRepoName(dep.repo)}
+                            </h4>
+                            <p className="text-xs text-gray-500 truncate mt-0.5" title={dep.repo}>
+                              {dep.repo}
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300">
+                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                                </svg>
+                                {dep.release_status}
+                              </span>
+                              {dep.projects && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300">
+                                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                                  </svg>
+                                  {dep.projects}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="shrink-0 px-2 py-0.5 text-xs font-medium rounded bg-green-500/20 text-green-400">
@@ -294,7 +463,8 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
                           </span>
                           <button
                             onClick={() => handleRemoveDependency(index)}
-                            className="shrink-0 p-1 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors"
+                            disabled={isSaving}
+                            className="shrink-0 p-1 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Eliminar dependencia"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -303,51 +473,84 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
                           </button>
                         </div>
                       </div>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300">
-                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                    </div>
+                  ))}
+                  
+                  {/* Dependencias de archivo */}
+                  {fileDependencies.map((file, index) => (
+                    <div 
+                      key={`file-${index}`}
+                      className="bg-gray-900 border border-gray-700 rounded-lg p-3 hover:border-gray-600 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2 flex-1 min-w-0">
+                          <svg className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
                           </svg>
-                          {dep.release_status}
-                        </span>
-                        {dep.projects && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300">
-                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                              <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-                            </svg>
-                            {dep.projects}
-                          </span>
-                        )}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-medium text-white truncate">
+                              {file.name}
+                            </h4>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {formatFileSize(file.size)}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleRemoveFileDependency(file.name)}
+                          disabled={isSaving}
+                          className="shrink-0 p-1 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Eliminar archivo"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-32">
-                  <div className="text-center">
+                <EmptyState 
+                  message="Sin dependencias CI/CD configuradas"
+                  icon={
                     <svg className="w-12 h-12 text-gray-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                     </svg>
-                    <p className="text-sm text-gray-500">Sin dependencias CI/CD configuradas</p>
-                  </div>
-                </div>
+                  }
+                />
               )}
             </div>
 
-            {/* Counter and Add button */}
+            {/* Counter and Add buttons */}
             <div className="p-2 border-t border-gray-700 bg-gray-900/30 flex items-center justify-between">
               <p className="text-xs text-gray-500">
-                {editedDependencies.length} dependencia(s)
+                {editedDependencies.length + fileDependencies.length} dependencia(s)
               </p>
-              <button
-                onClick={() => setShowAddRepoModal(true)}
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-500 rounded transition-colors"
-              >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Repositorio
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowAddRepoModal(true)}
+                  disabled={isSaving}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-500 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Añadir repositorio"
+                >
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                  Repositorio
+                </button>
+                <button
+                  onClick={() => setShowAddFileModal(true)}
+                  disabled={isSaving}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-white bg-gray-600 hover:bg-gray-500 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Añadir archivo .app"
+                >
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                  </svg>
+                  Archivo
+                </button>
+              </div>
             </div>
           </div>
 
@@ -365,24 +568,16 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
             
             <div className="flex-1 overflow-y-auto p-4">
               {isLoadingAppJson ? (
-                <div className="flex items-center justify-center h-32">
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    <span className="text-sm">Cargando...</span>
-                  </div>
-                </div>
+                <LoadingSpinner />
               ) : appJsonError ? (
-                <div className="flex items-center justify-center h-32">
-                  <div className="text-center">
+                <EmptyState 
+                  message={appJsonError}
+                  icon={
                     <svg className="w-12 h-12 text-gray-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <p className="text-sm text-gray-500">{appJsonError}</p>
-                  </div>
-                </div>
+                  }
+                />
               ) : appJsonData?.dependencies && appJsonData.dependencies.length > 0 ? (
                 <div className="space-y-3">
                   {appJsonData.dependencies.map((dep, index) => (
@@ -415,14 +610,14 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
                   ))}
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-32">
-                  <div className="text-center">
+                <EmptyState 
+                  message="Sin dependencias de app"
+                  icon={
                     <svg className="w-12 h-12 text-gray-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                     </svg>
-                    <p className="text-sm text-gray-500">Sin dependencias de app</p>
-                  </div>
-                </div>
+                  }
+                />
               )}
             </div>
 
@@ -436,60 +631,97 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-700 flex items-center justify-between gap-3">
-          {/* Selector de rama */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-400">PR a rama:</span>
-            <select
-              value={selectedBranch}
-              onChange={(e) => setSelectedBranch(e.target.value)}
-              disabled={isLoadingBranches || isSaving}
-              className="px-3 py-2 text-sm bg-gray-700 text-white border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            >
-              {isLoadingBranches ? (
-                <option>Cargando...</option>
-              ) : branches.length > 0 ? (
-                branches.map((branch) => (
-                  <option key={branch} value={branch}>
-                    {branch}
-                  </option>
-                ))
-              ) : (
-                <option>No hay ramas disponibles</option>
-              )}
-            </select>
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              disabled={isSaving}
-              className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors disabled:opacity-50"
-            >
-              Cancelar
-            </button>
-          <button
-            onClick={handleSaveChanges}
-            disabled={isSaving}
-            className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-500 rounded-md transition-colors disabled:opacity-50 flex items-center gap-2"
-          >
-            {isSaving ? (
-              <>
-                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+        <div className="p-4 border-t border-gray-700 flex flex-col gap-3">
+          {/* Barra de progreso */}
+          {isSaving && (
+            <div className="bg-gray-900 border border-gray-700 rounded-lg p-3">
+              <div className="flex items-center gap-3">
+                <svg className="w-5 h-5 animate-spin text-blue-400" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                Creando PR...
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                </svg>
-                Crear PR a {selectedBranch}
-              </>
-            )}
-          </button>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-white">
+                    {saveStep.status === 'updating-settings' && saveStep.message}
+                    {saveStep.status === 'uploading-files' && `${saveStep.message} (${saveStep.current}/${saveStep.total})`}
+                    {saveStep.status === 'deleting-files' && `${saveStep.message} (${saveStep.current}/${saveStep.total})`}
+                    {saveStep.status === 'creating-pr' && saveStep.message}
+                  </p>
+                  {(saveStep.status === 'uploading-files' || saveStep.status === 'deleting-files') && (
+                    <div className="mt-2 w-full bg-gray-700 rounded-full h-1.5">
+                      <div 
+                        className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                        style={{ width: `${(saveStep.current / saveStep.total) * 100}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between gap-3">
+            {/* Selector de rama */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-400">PR a rama:</span>
+              <select
+                value={selectedBranch}
+                onChange={(e) => setSelectedBranch(e.target.value)}
+                disabled={isLoadingBranches || isSaving}
+                className="px-3 py-2 text-sm bg-gray-700 text-white border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoadingBranches ? (
+                  <option>Cargando...</option>
+                ) : branches.length > 0 ? (
+                  branches.map((branch) => (
+                    <option key={branch} value={branch}>
+                      {branch}
+                    </option>
+                  ))
+                ) : (
+                  <option>No hay ramas disponibles</option>
+                )}
+              </select>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleClose}
+                disabled={isSaving}
+                className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveChanges}
+                disabled={isSaving}
+                className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-500 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {saveStep.status === 'completed' ? (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Completado
+                  </>
+                ) : isSaving ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Procesando...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                    </svg>
+                    Crear PR a {selectedBranch}
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -502,6 +734,14 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
           currentRepoFullName={`${owner}/${repo}`}
           existingDeps={editedDependencies}
           onAdd={handleAddDependencies}
+        />
+      )}
+
+      {/* Modal de carga de archivos */}
+      {showAddFileModal && (
+        <AddFileModal
+          onClose={() => setShowAddFileModal(false)}
+          onAdd={handleAddFileDependencies}
         />
       )}
     </div>
@@ -522,24 +762,20 @@ function AddRepoModal({ onClose, repos, currentRepoFullName, existingDeps, onAdd
   const [releaseStatus, setReleaseStatus] = useState("release");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Filtrar: repos ya añadidos y el repositorio actual
   const existingRepoUrls = new Set(existingDeps.map(dep => dep.repo));
   const availableRepos = repos.filter(repo => 
-    !existingRepoUrls.has(repo.html_url) && 
-    repo.full_name !== currentRepoFullName
+    !existingRepoUrls.has(repo.html_url) && repo.full_name !== currentRepoFullName
   );
   const filteredRepos = availableRepos.filter(repo => 
     repo.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const toggleRepoSelection = (repoId: number) => {
-    const newSelection = new Set(selectedRepos);
-    if (newSelection.has(repoId)) {
-      newSelection.delete(repoId);
-    } else {
-      newSelection.add(repoId);
-    }
-    setSelectedRepos(newSelection);
+    setSelectedRepos(prev => {
+      const newSelection = new Set(prev);
+      newSelection.has(repoId) ? newSelection.delete(repoId) : newSelection.add(repoId);
+      return newSelection;
+    });
   };
 
   const getSelectedRepoNames = () => {
@@ -549,14 +785,10 @@ function AddRepoModal({ onClose, repos, currentRepoFullName, existingDeps, onAdd
   };
 
   const handleAdd = () => {
-    if (selectedRepos.size > 0) {
-      const reposToAdd = availableRepos.filter(repo => selectedRepos.has(repo.id));
-      onAdd(reposToAdd, version, releaseStatus);
-      setSelectedRepos(new Set());
-      setVersion("latest");
-      setReleaseStatus("release");
-      setSearchQuery("");
-    }
+    if (selectedRepos.size === 0) return;
+    
+    const reposToAdd = availableRepos.filter(repo => selectedRepos.has(repo.id));
+    onAdd(reposToAdd, version, releaseStatus);
   };
 
   return (
@@ -708,6 +940,167 @@ function AddRepoModal({ onClose, repos, currentRepoFullName, existingDeps, onAdd
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Añadir {selectedRepos.size > 0 && `(${selectedRepos.size})`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface AddFileModalProps {
+  onClose: () => void;
+  onAdd: (files: File[]) => void;
+}
+
+function AddFileModal({ onClose, onAdd }: AddFileModalProps) {
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [dragActive, setDragActive] = useState(false);
+
+  const addFiles = (fileList: FileList | null) => {
+    if (!fileList) return;
+    const files = Array.from(fileList).filter(f => f.name.endsWith('.app'));
+    setSelectedFiles(prev => [...prev, ...files]);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    addFiles(e.target.files);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    addFiles(e.dataTransfer.files);
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAdd = () => {
+    if (selectedFiles.length === 0) return;
+    onAdd(selectedFiles);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60]">
+      <div className="bg-gray-800 rounded-lg shadow-xl border border-gray-700 w-[90vw] max-w-2xl max-h-[80vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+            <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+            </svg>
+            Añadir archivos .app
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Drop zone */}
+        <div className="flex-1 overflow-y-auto p-4">
+          <div
+            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+              dragActive
+                ? "border-gray-400 bg-gray-500/10"
+                : "border-gray-600 hover:border-gray-500"
+            }`}
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
+          >
+            <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            <p className="text-gray-300 mb-2">
+              Arrastra archivos .app aquí
+            </p>
+            <p className="text-gray-500 text-sm mb-4">o</p>
+            <label className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gray-600 hover:bg-gray-500 rounded-md transition-colors cursor-pointer">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Seleccionar archivos
+              <input
+                type="file"
+                accept=".app"
+                multiple
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </label>
+          </div>
+
+          {/* Selected files list */}
+          {selectedFiles.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <h4 className="text-sm font-medium text-gray-300 mb-2">
+                Archivos seleccionados ({selectedFiles.length})
+              </h4>
+              {selectedFiles.map((file, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 bg-gray-900 border border-gray-700 rounded-lg"
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <svg className="w-5 h-5 text-gray-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                    </svg>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">
+                        {file.name}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {formatFileSize(file.size)}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => removeFile(index)}
+                    className="shrink-0 p-1 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-gray-700 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleAdd}
+            disabled={selectedFiles.length === 0}
+            className="px-4 py-2 text-sm font-medium text-white bg-gray-600 hover:bg-gray-500 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Añadir {selectedFiles.length > 0 && `(${selectedFiles.length})`}
           </button>
         </div>
       </div>
