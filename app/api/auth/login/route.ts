@@ -21,8 +21,18 @@ export async function POST(request: NextRequest) {
     });
 
     if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      console.error("GitHub API error:", {
+        status: res.status,
+        statusText: res.statusText,
+        error: errorData,
+      });
       return NextResponse.json(
-        { error: "Invalid GitHub token" },
+        { 
+          error: "Invalid GitHub token", 
+          details: errorData.message || res.statusText,
+          status: res.status 
+        },
         { status: 401 }
       );
     }

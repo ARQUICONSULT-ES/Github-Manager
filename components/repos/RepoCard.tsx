@@ -53,6 +53,19 @@ const languageColors: Record<string, string> = {
   AL: "#3AA6D0",
 };
 
+// Función para calcular la siguiente versión minor
+function getNextMinorVersion(tagName: string | null): string {
+  if (!tagName) return "1.0";
+  
+  // Extraer números de la versión (ej: "v1.2.3" -> [1, 2, 3])
+  const numbers = tagName.match(/(\d+)/g);
+  if (!numbers || numbers.length < 2) return "1.0";
+  
+  const major = parseInt(numbers[0]);
+  const minor = parseInt(numbers[1]) + 1;
+  return `${major}.${minor}`;
+}
+
 // Función para formatear tiempo relativo
 function getRelativeTime(dateString: string): string {
   const date = new Date(dateString);
@@ -88,6 +101,15 @@ export function RepoCard({ repo, preloadedInfo, skipIndividualFetch = false }: R
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUpdatingAlGo, setIsUpdatingAlGo] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showReleaseModal, setShowReleaseModal] = useState(false);
+  const [releaseCommits, setReleaseCommits] = useState<Array<{
+    sha: string;
+    message: string;
+    author: string;
+    avatar_url?: string;
+    date: string;
+  }>>([]);
+  const [isLoadingCommits, setIsLoadingCommits] = useState(false);
   const [showSuccessBanner, setShowSuccessBanner] = useState(false);
   const [countdown, setCountdown] = useState(3);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -211,6 +233,28 @@ export function RepoCard({ repo, preloadedInfo, skipIndividualFetch = false }: R
     setShowConfirmModal(true);
   };
 
+  const openReleaseModal = async () => {
+    setShowReleaseModal(true);
+    setIsLoadingCommits(true);
+    setReleaseCommits([]);
+
+    try {
+      const [owner, repoName] = repo.full_name.split("/");
+      const base = latestRelease?.tag_name || "";
+      const url = `/api/github/compare?owner=${owner}&repo=${repoName}&base=${base}&head=main`;
+      
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setReleaseCommits(data.commits || []);
+      }
+    } catch (error) {
+      console.error("Error fetching commits:", error);
+    } finally {
+      setIsLoadingCommits(false);
+    }
+  };
+
   const getStatusIndicator = () => {
     if (isLoading) {
       return (
@@ -330,6 +374,77 @@ export function RepoCard({ repo, preloadedInfo, skipIndividualFetch = false }: R
         </div>
       )}
 
+      {/* Modal de crear release */}
+      {showReleaseModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-lg w-full mx-4 shadow-xl border border-gray-700 max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">
+                Nueva release v{getNextMinorVersion(latestRelease?.tag_name ?? null)}
+              </h3>
+              <button
+                onClick={() => setShowReleaseModal(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+            
+            <p className="text-sm text-gray-400 mb-3">
+              {latestRelease 
+                ? `Cambios desde ${latestRelease.tag_name}:`
+                : "Commits a incluir en la primera release:"}
+            </p>
+
+            <div className="flex-1 overflow-y-auto min-h-0 mb-4">
+              {isLoadingCommits ? (
+                <div className="flex items-center justify-center py-8">
+                  <svg className="w-6 h-6 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                </div>
+              ) : releaseCommits.length === 0 ? (
+                <p className="text-center text-gray-500 py-8">
+                  No hay cambios desde la última release
+                </p>
+              ) : (
+                <ul className="space-y-3">
+                  {releaseCommits.map((commit) => (
+                    <li key={commit.sha} className="flex items-start gap-2 text-sm">
+                      <span className="text-gray-500 font-mono shrink-0">
+                        {commit.sha.substring(0, 7)}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-gray-300 break-words">{commit.message}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">by {commit.author}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="flex gap-3 justify-end pt-4 border-t border-gray-700">
+              <button
+                onClick={() => setShowReleaseModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={releaseCommits.length === 0 || isLoadingCommits}
+                className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-500 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Crear release
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Banner de éxito con countdown */}
       {showSuccessBanner && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top">
@@ -414,11 +529,14 @@ export function RepoCard({ repo, preloadedInfo, skipIndividualFetch = false }: R
 
         {/* Boton de crear release y menu */}
         <div className="flex items-center gap-2 mt-auto">
-          <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-md text-sm text-gray-300 transition-colors">
+          <button 
+            onClick={openReleaseModal}
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-md text-sm text-gray-300 transition-colors"
+          >
             <svg className="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
             </svg>
-            Create minor v1.0
+            Crear release v{getNextMinorVersion(latestRelease?.tag_name ?? null)}
           </button>
           
           {/* Menu de tres puntos */}

@@ -1,27 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { GitHubRepository } from "@/types/github";
 import { RepoCard, RepoExtraInfo } from "./RepoCard";
 
 interface RepoListProps {
   repos: GitHubRepository[];
+  allRepos?: GitHubRepository[]; // Lista completa para el batch (opcional)
 }
 
-export function RepoList({ repos }: RepoListProps) {
+export function RepoList({ repos, allRepos }: RepoListProps) {
   const [extraInfo, setExtraInfo] = useState<Record<string, RepoExtraInfo>>({});
   const [isLoadingBatch, setIsLoadingBatch] = useState(true);
+  const hasFetchedRef = useRef(false);
+
+  // Usar allRepos para el batch si está disponible, sino repos
+  const reposForBatch = allRepos || repos;
 
   useEffect(() => {
-    if (repos.length === 0) {
-      setIsLoadingBatch(false);
+    // Solo ejecutar el batch una vez
+    if (hasFetchedRef.current || reposForBatch.length === 0) {
+      if (reposForBatch.length === 0) setIsLoadingBatch(false);
       return;
     }
+
+    hasFetchedRef.current = true;
 
     const fetchBatchInfo = async () => {
       try {
         // Preparar lista de repos para el batch
-        const repoRequests = repos.map((repo) => {
+        const repoRequests = reposForBatch.map((repo) => {
           const [owner, repoName] = repo.full_name.split("/");
           return { owner, repo: repoName };
         });
@@ -59,7 +67,7 @@ export function RepoList({ repos }: RepoListProps) {
     };
 
     fetchBatchInfo();
-  }, [repos]);
+  }, [reposForBatch]);
 
   if (repos.length === 0) {
     return (
