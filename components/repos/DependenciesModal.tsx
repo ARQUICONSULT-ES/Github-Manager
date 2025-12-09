@@ -25,11 +25,41 @@ interface AppDependency {
   version: string;
 }
 
+// Dependencia extraída del NavxManifest.xml de un archivo .app
+interface AppFileManifestDependency {
+  id: string;
+  name: string;
+  publisher: string;
+  minVersion: string;
+}
+
+// Información del manifest de un archivo .app
+interface AppFileManifest {
+  id: string;
+  name: string;
+  publisher: string;
+  version: string;
+  dependencies: AppFileManifestDependency[];
+}
+
+// Información de dependencias de un archivo .app
+interface AppFileDependencyInfo {
+  fileName: string;
+  manifest: AppFileManifest | null;
+  error?: string;
+}
+
 // Información de dependencias faltantes por repositorio
 interface MissingDependencyInfo {
   repoFullName: string;
   missingRepos: string[]; // URLs de repos que faltan
   missingFiles: string[]; // Nombres de archivos .app que faltan
+}
+
+// Información de dependencias faltantes por archivo .app
+interface MissingFileDependencyInfo {
+  fileName: string;
+  missingDependencies: AppFileManifestDependency[]; // Dependencias que faltan
 }
 
 // Respuesta del endpoint repo-dependencies
@@ -106,6 +136,8 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
   const [missingDependencies, setMissingDependencies] = useState<Map<string, MissingDependencyInfo>>(new Map());
   const [isResolvingDeps, setIsResolvingDeps] = useState(false);
   const [depDataMap, setDepDataMap] = useState<Map<string, RepoDependencies>>(new Map());
+  const [appFileDependencies, setAppFileDependencies] = useState<Map<string, AppFileDependencyInfo>>(new Map());
+  const [missingFileDependencies, setMissingFileDependencies] = useState<Map<string, MissingFileDependencyInfo>>(new Map());
 
   const isSaving = saveStep.status !== 'idle' && saveStep.status !== 'completed';
 
@@ -125,6 +157,8 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
     setMissingDependencies(new Map());
     setIsResolvingDeps(false);
     setDepDataMap(new Map());
+    setAppFileDependencies(new Map());
+    setMissingFileDependencies(new Map());
     
     fetchSettings();
     fetchAppJson();
@@ -291,6 +325,46 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
     return missing;
   }, []);
 
+  // Función para verificar dependencias faltantes de archivos .app
+  const checkMissingFileDependencies = useCallback((
+    files: FileDependency[],
+    appFileDepData: Map<string, AppFileDependencyInfo>
+  ): Map<string, MissingFileDependencyInfo> => {
+    const missing = new Map<string, MissingFileDependencyInfo>();
+    const currentFileNames = new Set(files.map(f => f.name));
+
+    for (const file of files) {
+      const fileInfo = appFileDepData.get(file.name);
+      if (!fileInfo?.manifest?.dependencies) continue;
+
+      const missingDeps: AppFileManifestDependency[] = [];
+
+      // Verificar cada dependencia del manifest
+      for (const dep of fileInfo.manifest.dependencies) {
+        // Buscar si existe un archivo con el mismo nombre (aproximado)
+        // El nombre puede variar ligeramente, así que buscamos por el nombre de la app
+        const depFileName = `${dep.name}.app`;
+        const exists = Array.from(currentFileNames).some(fileName => 
+          fileName.toLowerCase().includes(dep.name.toLowerCase()) ||
+          dep.name.toLowerCase().includes(fileName.toLowerCase().replace('.app', ''))
+        );
+
+        if (!exists) {
+          missingDeps.push(dep);
+        }
+      }
+
+      if (missingDeps.length > 0) {
+        missing.set(file.name, {
+          fileName: file.name,
+          missingDependencies: missingDeps,
+        });
+      }
+    }
+
+    return missing;
+  }, []);
+
   // Función para obtener dependencias recursivas de un repositorio
   const fetchRecursiveDependencies = async (repoUrls: string[]): Promise<{
     allDeps: AppDependencyProbingPath[];
@@ -375,12 +449,53 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
     setFilesToDelete([...filesToDelete, fileName]);
     const updatedFiles = fileDependencies.filter(f => f.name !== fileName);
     setFileDependencies(updatedFiles);
+    // Eliminar del mapa de dependencias de archivos
+    const updatedAppFileDeps = new Map(appFileDependencies);
+    updatedAppFileDeps.delete(fileName);
+    setAppFileDependencies(updatedAppFileDeps);
     // Recalcular warnings con los archivos actualizados
     const missing = checkMissingDependencies(editedDependencies, updatedFiles, depDataMap);
     setMissingDependencies(missing);
+    // Recalcular warnings de archivos
+    const fileMissing = checkMissingFileDependencies(updatedFiles, updatedAppFileDeps);
+    setMissingFileDependencies(fileMissing);
   };
 
-  const handleAddFileDependencies = (files: File[]) => {
+  // Función para analizar un archivo .app y extraer sus dependencias
+  const analyzeAppFile = async (file: File): Promise<AppFileDependencyInfo> => {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/github/analyze-app-file", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        return {
+          fileName: file.name,
+          manifest: data.manifest,
+        };
+      } else {
+        const errorData = await res.json();
+        return {
+          fileName: file.name,
+          manifest: null,
+          error: errorData.error || "Error al analizar archivo",
+        };
+      }
+    } catch (error) {
+      return {
+        fileName: file.name,
+        manifest: null,
+        error: error instanceof Error ? error.message : "Error desconocido",
+      };
+    }
+  };
+
+  const handleAddFileDependencies = async (files: File[]) => {
     setFilesToUpload([...filesToUpload, ...files]);
     const newFiles: FileDependency[] = files.map(file => ({
       name: file.name,
@@ -388,7 +503,20 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
       sha: "pending",
       size: file.size,
     }));
-    setFileDependencies([...fileDependencies, ...newFiles]);
+    const combinedFiles = [...fileDependencies, ...newFiles];
+    setFileDependencies(combinedFiles);
+
+    // Analizar cada archivo .app para extraer sus dependencias
+    const newAppFileDeps = new Map(appFileDependencies);
+    for (const file of files) {
+      const depInfo = await analyzeAppFile(file);
+      newAppFileDeps.set(file.name, depInfo);
+    }
+    setAppFileDependencies(newAppFileDeps);
+
+    // Recalcular warnings de archivos
+    const fileMissing = checkMissingFileDependencies(combinedFiles, newAppFileDeps);
+    setMissingFileDependencies(fileMissing);
   };
 
   const handleAddDependencies = async (selectedRepos: GitHubRepository[], version: string, releaseStatus: string) => {
@@ -739,38 +867,85 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
                   })}
                   
                   {/* Dependencias de archivo */}
-                  {fileDependencies.map((file, index) => (
-                    <div 
-                      key={`file-${index}`}
-                      className="bg-gray-900 border border-gray-700 rounded-lg p-3 hover:border-gray-600 transition-colors"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-start gap-2 flex-1 min-w-0">
-                          <svg className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
-                          </svg>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-medium text-white truncate">
-                              {file.name}
-                            </h4>
-                            <p className="text-xs text-gray-500 mt-0.5">
-                              {formatFileSize(file.size)}
-                            </p>
+                  {fileDependencies.map((file, index) => {
+                    const appFileInfo = appFileDependencies.get(file.name);
+                    const missingInfo = missingFileDependencies.get(file.name);
+                    const hasMissing = missingInfo && missingInfo.missingDependencies.length > 0;
+                    
+                    return (
+                      <div 
+                        key={`file-${index}`}
+                        className={`bg-gray-900 border rounded-lg p-3 hover:border-gray-600 transition-colors ${
+                          hasMissing ? 'border-yellow-500/50' : 'border-gray-700'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-2 flex-1 min-w-0">
+                            <svg className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                            </svg>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-sm font-medium text-white truncate">
+                                  {file.name}
+                                </h4>
+                                {hasMissing && (
+                                  <div className="relative group/filetooltip">
+                                    <svg 
+                                      className="w-4 h-4 text-yellow-500 cursor-help shrink-0" 
+                                      fill="currentColor" 
+                                      viewBox="0 0 20 20"
+                                    >
+                                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                    </svg>
+                                    {/* Tooltip */}
+                                    <div className="fixed hidden group-hover/filetooltip:block" style={{ zIndex: 9999 }}>
+                                      <div className="absolute left-6 top-0 w-72 p-3 bg-gray-900 border border-yellow-500/30 rounded-lg shadow-2xl">
+                                        <p className="text-xs font-medium text-yellow-500 mb-2">
+                                          Dependencias faltantes:
+                                        </p>
+                                        <ul className="text-xs text-gray-300 space-y-2">
+                                          {missingInfo!.missingDependencies.map((dep, i) => (
+                                            <li key={i} className="flex flex-col gap-0.5 pb-2 border-b border-gray-700 last:border-0 last:pb-0">
+                                              <div className="flex items-center gap-1">
+                                                <svg className="w-3 h-3 text-gray-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                                                </svg>
+                                                <span className="font-medium text-white">{dep.name}</span>
+                                              </div>
+                                              <span className="text-gray-400 text-[10px]">{dep.publisher} • v{dep.minVersion}+</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              {appFileInfo?.manifest && (
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  {appFileInfo.manifest.publisher} • v{appFileInfo.manifest.version}
+                                </p>
+                              )}
+                              <p className="text-xs text-gray-600 mt-0.5">
+                                {formatFileSize(file.size)}
+                              </p>
+                            </div>
                           </div>
+                          <button
+                            onClick={() => handleRemoveFileDependency(file.name)}
+                            disabled={isSaving}
+                            className="shrink-0 p-1 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Eliminar archivo"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
                         </div>
-                        <button
-                          onClick={() => handleRemoveFileDependency(file.name)}
-                          disabled={isSaving}
-                          className="shrink-0 p-1 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Eliminar archivo"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <EmptyState 
