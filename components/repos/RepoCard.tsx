@@ -121,8 +121,10 @@ export function RepoCard({
   }>>([]);
   const [isLoadingCommits, setIsLoadingCommits] = useState(false);
   const [showSuccessBanner, setShowSuccessBanner] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("Workflow iniciado correctamente");
   const [countdown, setCountdown] = useState(3);
   const [showDependenciesModal, setShowDependenciesModal] = useState(false);
+  const [isCreatingRelease, setIsCreatingRelease] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Actualizar estados cuando llegan los datos pre-cargados
@@ -213,6 +215,7 @@ export function RepoCard({
       }
 
       // Mostrar banner y abrir ventana después de 3 segundos
+      setSuccessMessage("Workflow de AL-Go iniciado correctamente");
       setShowSuccessBanner(true);
       setCountdown(3);
       
@@ -260,6 +263,67 @@ export function RepoCard({
       console.error("Error fetching commits:", error);
     } finally {
       setIsLoadingCommits(false);
+    }
+  };
+
+  const handleCreateRelease = async () => {
+    setIsCreatingRelease(true);
+
+    try {
+      const [owner, repoName] = repo.full_name.split("/");
+      const newVersion = getNextMinorVersion(latestRelease?.tag_name ?? null);
+      
+      const res = await fetch("/api/github/trigger-workflow", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          owner,
+          repo: repoName,
+          workflow: "CreateRelease.yaml",
+          ref: "main",
+          inputs: {
+            useGhTokenWorkflow: "true",
+            updateVersionNumber: "+0.1",
+            name: newVersion,
+            tag: `${newVersion}.0`,
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Error al crear release");
+      }
+
+      // Cerrar modal de release
+      setShowReleaseModal(false);
+
+      // Mostrar banner y abrir ventana después de 3 segundos
+      setSuccessMessage(`Release v${newVersion} creada correctamente`);
+      setShowSuccessBanner(true);
+      setCountdown(3);
+      
+      setTimeout(() => setCountdown(2), 1000);
+      setTimeout(() => setCountdown(1), 2000);
+      setTimeout(() => {
+        setShowSuccessBanner(false);
+        window.open(`https://github.com/${repo.full_name}/actions`, "_blank");
+      }, 3000);
+
+      // Refrescar el estado del workflow después de un momento
+      setTimeout(() => {
+        const [owner, repoName] = repo.full_name.split("/");
+        fetchWorkflowStatus(owner, repoName);
+        fetchLatestRelease(owner, repoName);
+      }, 2000);
+
+    } catch (error) {
+      console.error("Error creating release:", error);
+      alert(error instanceof Error ? error.message : "Error al crear release");
+    } finally {
+      setIsCreatingRelease(false);
     }
   };
 
@@ -438,15 +502,27 @@ export function RepoCard({
             <div className="flex gap-3 justify-end pt-4 border-t border-gray-700">
               <button
                 onClick={() => setShowReleaseModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors"
+                disabled={isCreatingRelease}
+                className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancelar
               </button>
               <button
-                disabled={releaseCommits.length === 0 || isLoadingCommits}
-                className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-500 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleCreateRelease}
+                disabled={releaseCommits.length === 0 || isLoadingCommits || isCreatingRelease}
+                className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-500 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Crear release
+                {isCreatingRelease ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Creando...
+                  </>
+                ) : (
+                  "Crear release"
+                )}
               </button>
             </div>
           </div>
@@ -461,7 +537,7 @@ export function RepoCard({
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
-              <span className="font-medium">Workflow iniciado correctamente</span>
+              <span className="font-medium">{successMessage}</span>
             </div>
             <div className="flex items-center gap-2 text-green-100 border-l border-green-500 pl-4">
               <span className="text-sm">Abriendo workflows en</span>
