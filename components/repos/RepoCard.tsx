@@ -327,6 +327,42 @@ export function RepoCard({
     }
   };
 
+  // Función para validar si se puede crear una release
+  const canCreateRelease = (): { canCreate: boolean; reason?: string } => {
+    if (isLoading) {
+      return { canCreate: false, reason: "Cargando estado del workflow..." };
+    }
+
+    if (!workflowStatus) {
+      return { canCreate: false, reason: "Estado del CI/CD desconocido" };
+    }
+
+    const { status, conclusion } = workflowStatus;
+
+    // Si está en progreso o en cola, no se puede crear release
+    if (status === "queued" || status === "in_progress") {
+      return { canCreate: false, reason: "Hay un workflow CI/CD en ejecución" };
+    }
+
+    // Si está completado pero no fue exitoso
+    if (status === "completed" && conclusion !== "success") {
+      if (conclusion === "failure") {
+        return { canCreate: false, reason: "El último CI/CD falló" };
+      }
+      if (conclusion === "cancelled") {
+        return { canCreate: false, reason: "El último CI/CD fue cancelado" };
+      }
+      return { canCreate: false, reason: "El último CI/CD no finalizó correctamente" };
+    }
+
+    // Si está completado y fue exitoso
+    if (status === "completed" && conclusion === "success") {
+      return { canCreate: true };
+    }
+
+    return { canCreate: false, reason: "Estado del CI/CD desconocido" };
+  };
+
   const getStatusIndicator = () => {
     if (isLoading) {
       return (
@@ -499,6 +535,19 @@ export function RepoCard({
               )}
             </div>
 
+            {/* Validación de CI/CD */}
+            {(() => {
+              const validation = canCreateRelease();
+              return !validation.canCreate && validation.reason ? (
+                <div className="flex items-center gap-2 px-3 py-2 bg-yellow-500/10 border border-yellow-500/30 rounded-md mb-4">
+                  <svg className="w-4 h-4 text-yellow-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  <p className="text-sm text-yellow-500">{validation.reason}</p>
+                </div>
+              ) : null;
+            })()}
+
             <div className="flex gap-3 justify-end pt-4 border-t border-gray-700">
               <button
                 onClick={() => setShowReleaseModal(false)}
@@ -509,8 +558,9 @@ export function RepoCard({
               </button>
               <button
                 onClick={handleCreateRelease}
-                disabled={releaseCommits.length === 0 || isLoadingCommits || isCreatingRelease}
+                disabled={releaseCommits.length === 0 || isLoadingCommits || isCreatingRelease || !canCreateRelease().canCreate}
                 className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-500 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                title={!canCreateRelease().canCreate ? canCreateRelease().reason : ""}
               >
                 {isCreatingRelease ? (
                   <>
@@ -630,7 +680,9 @@ export function RepoCard({
         <div className="flex items-center gap-2 mt-auto">
           <button 
             onClick={openReleaseModal}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-md text-sm text-gray-300 transition-colors"
+            disabled={!canCreateRelease().canCreate}
+            title={!canCreateRelease().canCreate ? canCreateRelease().reason : ""}
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-md text-sm text-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-800"
           >
             <svg className="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
