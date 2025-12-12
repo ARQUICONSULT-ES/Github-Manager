@@ -247,7 +247,18 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
       if (res.ok) {
         const data = await res.json();
         setBranches(data.branches);
-        setSelectedBranch(data.branches.includes("main") ? "main" : data.branches[0] || "main");
+        
+        // Prioridad: dev -> main -> primera disponible
+        let defaultBranch = "main";
+        if (data.branches.includes("dev")) {
+          defaultBranch = "dev";
+        } else if (data.branches.includes("main")) {
+          defaultBranch = "main";
+        } else if (data.branches.length > 0) {
+          defaultBranch = data.branches[0];
+        }
+        
+        setSelectedBranch(defaultBranch);
       }
     } catch (error) {
       console.error("Error fetching branches:", error);
