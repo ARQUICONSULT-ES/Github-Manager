@@ -18,6 +18,7 @@ model Tenant {
   id           Int           @id @default(autoincrement())
   customer     String        @db.VarChar(50)
   environments Environment[]
+  connections  Connection[]
 
   @@map("tenants")
 }
@@ -39,8 +40,27 @@ model Extension {
   environmentName String      @db.VarChar(50)
   id              String      @default(uuid())
   name            String      @db.VarChar(50)
+  version         String      @db.VarChar(50)
+  publisher       String      @db.VarChar(50)
+  publishedAs     String      @db.VarChar(20)
   environment     Environment @relation(fields: [tenantId, environmentName], references: [tenantId, name], onDelete: Cascade)
 
   @@id([tenantId, environmentName, id])
   @@map("extensions")
+}
+
+// Tabla relacionada: Connections
+model Connection {
+  tenantId        Int
+  id              String   @default(uuid())
+  grantType       String   @db.VarChar(100)
+  clientId        String   @db.Uuid
+  clientSecret    String   @db.VarChar(1000)
+  scope           String   @db.VarChar(100)
+  token           String   @db.VarChar(1000)
+  tokenExpiresAt  DateTime
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, id])
+  @@map("connections")
 }

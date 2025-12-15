@@ -20,7 +20,7 @@ const config: runtime.GetPrismaClientConfig = {
   "clientVersion": "7.1.0",
   "engineVersion": "ab635e6b9d606fa5c8fb8b1a7f909c3c3c1c98ba",
   "activeProvider": "postgresql",
-  "inlineSchema": "// This is your Prisma schema file,\n// learn more about it in the docs: https://pris.ly/d/prisma-schema\n\n// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?\n// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init\n\ngenerator client {\n  provider = \"prisma-client\"\n  output   = \"../app/generated/prisma\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n}\n\n// Tabla de ejemplo: Usuarios\nmodel User {\n  id        String   @id @default(cuid())\n  email     String   @unique\n  name      String?\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  @@map(\"users\")\n}\n",
+  "inlineSchema": "// This is your Prisma schema file,\n// learn more about it in the docs: https://pris.ly/d/prisma-schema\n\n// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?\n// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init\n\ngenerator client {\n  provider = \"prisma-client\"\n  output   = \"../app/generated/prisma\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n}\n\n// Tabla principal: Tenants\nmodel Tenant {\n  id           Int           @id @default(autoincrement())\n  customer     String        @db.VarChar(50)\n  environments Environment[]\n  connections  Connection[]\n\n  @@map(\"tenants\")\n}\n\n// Tabla relacionada: Environments\nmodel Environment {\n  tenantId   Int\n  name       String      @db.VarChar(50)\n  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)\n  extensions Extension[]\n\n  @@id([tenantId, name])\n  @@map(\"environments\")\n}\n\n// Tabla relacionada: Extensions\nmodel Extension {\n  tenantId        Int\n  environmentName String      @db.VarChar(50)\n  id              String      @default(uuid())\n  name            String      @db.VarChar(50)\n  version         String      @db.VarChar(50)\n  publisher       String      @db.VarChar(50)\n  publishedAs     String      @db.VarChar(20)\n  environment     Environment @relation(fields: [tenantId, environmentName], references: [tenantId, name], onDelete: Cascade)\n\n  @@id([tenantId, environmentName, id])\n  @@map(\"extensions\")\n}\n\n// Tabla relacionada: Connections\nmodel Connection {\n  tenantId       Int\n  id             String   @default(uuid())\n  grantType      String   @db.VarChar(100)\n  clientId       String   @db.Uuid\n  clientSecret   String   @db.VarChar(1000)\n  scope          String   @db.VarChar(100)\n  token          String   @db.VarChar(1000)\n  tokenExpiresAt DateTime\n  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)\n\n  @@id([tenantId, id])\n  @@map(\"connections\")\n}\n",
   "runtimeDataModel": {
     "models": {},
     "enums": {},
@@ -28,7 +28,7 @@ const config: runtime.GetPrismaClientConfig = {
   }
 }
 
-config.runtimeDataModel = JSON.parse("{\"models\":{\"User\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"email\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"}],\"dbName\":\"users\"}},\"enums\":{},\"types\":{}}")
+config.runtimeDataModel = JSON.parse("{\"models\":{\"Tenant\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"customer\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"environments\",\"kind\":\"object\",\"type\":\"Environment\",\"relationName\":\"EnvironmentToTenant\"},{\"name\":\"connections\",\"kind\":\"object\",\"type\":\"Connection\",\"relationName\":\"ConnectionToTenant\"}],\"dbName\":\"tenants\"},\"Environment\":{\"fields\":[{\"name\":\"tenantId\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"tenant\",\"kind\":\"object\",\"type\":\"Tenant\",\"relationName\":\"EnvironmentToTenant\"},{\"name\":\"extensions\",\"kind\":\"object\",\"type\":\"Extension\",\"relationName\":\"EnvironmentToExtension\"}],\"dbName\":\"environments\"},\"Extension\":{\"fields\":[{\"name\":\"tenantId\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"environmentName\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"version\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"publisher\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"publishedAs\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"environment\",\"kind\":\"object\",\"type\":\"Environment\",\"relationName\":\"EnvironmentToExtension\"}],\"dbName\":\"extensions\"},\"Connection\":{\"fields\":[{\"name\":\"tenantId\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"grantType\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"clientId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"clientSecret\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"scope\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"token\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"tokenExpiresAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"tenant\",\"kind\":\"object\",\"type\":\"Tenant\",\"relationName\":\"ConnectionToTenant\"}],\"dbName\":\"connections\"}},\"enums\":{},\"types\":{}}")
 
 async function decodeBase64AsWasm(wasmBase64: string): Promise<WebAssembly.Module> {
   const { Buffer } = await import('node:buffer')
@@ -58,8 +58,8 @@ export interface PrismaClientConstructor {
    * @example
    * ```
    * const prisma = new PrismaClient()
-   * // Fetch zero or more Users
-   * const users = await prisma.user.findMany()
+   * // Fetch zero or more Tenants
+   * const tenants = await prisma.tenant.findMany()
    * ```
    * 
    * Read more in our [docs](https://pris.ly/d/client).
@@ -80,8 +80,8 @@ export interface PrismaClientConstructor {
  * @example
  * ```
  * const prisma = new PrismaClient()
- * // Fetch zero or more Users
- * const users = await prisma.user.findMany()
+ * // Fetch zero or more Tenants
+ * const tenants = await prisma.tenant.findMany()
  * ```
  * 
  * Read more in our [docs](https://pris.ly/d/client).
@@ -175,14 +175,44 @@ export interface PrismaClient<
   }>>
 
       /**
-   * `prisma.user`: Exposes CRUD operations for the **User** model.
+   * `prisma.tenant`: Exposes CRUD operations for the **Tenant** model.
     * Example usage:
     * ```ts
-    * // Fetch zero or more Users
-    * const users = await prisma.user.findMany()
+    * // Fetch zero or more Tenants
+    * const tenants = await prisma.tenant.findMany()
     * ```
     */
-  get user(): Prisma.UserDelegate<ExtArgs, { omit: OmitOpts }>;
+  get tenant(): Prisma.TenantDelegate<ExtArgs, { omit: OmitOpts }>;
+
+  /**
+   * `prisma.environment`: Exposes CRUD operations for the **Environment** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more Environments
+    * const environments = await prisma.environment.findMany()
+    * ```
+    */
+  get environment(): Prisma.EnvironmentDelegate<ExtArgs, { omit: OmitOpts }>;
+
+  /**
+   * `prisma.extension`: Exposes CRUD operations for the **Extension** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more Extensions
+    * const extensions = await prisma.extension.findMany()
+    * ```
+    */
+  get extension(): Prisma.ExtensionDelegate<ExtArgs, { omit: OmitOpts }>;
+
+  /**
+   * `prisma.connection`: Exposes CRUD operations for the **Connection** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more Connections
+    * const connections = await prisma.connection.findMany()
+    * ```
+    */
+  get connection(): Prisma.ConnectionDelegate<ExtArgs, { omit: OmitOpts }>;
 }
 
 export function getPrismaClientClass(): PrismaClientConstructor {

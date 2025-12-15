@@ -51,7 +51,10 @@ export const AnyNull = runtime.AnyNull
 
 
 export const ModelName = {
-  User: 'User'
+  Tenant: 'Tenant',
+  Environment: 'Environment',
+  Extension: 'Extension',
+  Connection: 'Connection'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -70,15 +73,47 @@ export const TransactionIsolationLevel = {
 export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof typeof TransactionIsolationLevel]
 
 
-export const UserScalarFieldEnum = {
+export const TenantScalarFieldEnum = {
   id: 'id',
-  email: 'email',
-  name: 'name',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  customer: 'customer'
 } as const
 
-export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
+export type TenantScalarFieldEnum = (typeof TenantScalarFieldEnum)[keyof typeof TenantScalarFieldEnum]
+
+
+export const EnvironmentScalarFieldEnum = {
+  tenantId: 'tenantId',
+  name: 'name'
+} as const
+
+export type EnvironmentScalarFieldEnum = (typeof EnvironmentScalarFieldEnum)[keyof typeof EnvironmentScalarFieldEnum]
+
+
+export const ExtensionScalarFieldEnum = {
+  tenantId: 'tenantId',
+  environmentName: 'environmentName',
+  id: 'id',
+  name: 'name',
+  version: 'version',
+  publisher: 'publisher',
+  publishedAs: 'publishedAs'
+} as const
+
+export type ExtensionScalarFieldEnum = (typeof ExtensionScalarFieldEnum)[keyof typeof ExtensionScalarFieldEnum]
+
+
+export const ConnectionScalarFieldEnum = {
+  tenantId: 'tenantId',
+  id: 'id',
+  grantType: 'grantType',
+  clientId: 'clientId',
+  clientSecret: 'clientSecret',
+  scope: 'scope',
+  token: 'token',
+  tokenExpiresAt: 'tokenExpiresAt'
+} as const
+
+export type ConnectionScalarFieldEnum = (typeof ConnectionScalarFieldEnum)[keyof typeof ConnectionScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -95,12 +130,4 @@ export const QueryMode = {
 } as const
 
 export type QueryMode = (typeof QueryMode)[keyof typeof QueryMode]
-
-
-export const NullsOrder = {
-  first: 'first',
-  last: 'last'
-} as const
-
-export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
 
