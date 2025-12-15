@@ -2,17 +2,10 @@
 
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import { GitHubRepository } from "@/types/github";
-import { RepoCard, RepoExtraInfo } from "./RepoCard";
-
-interface RepoListProps {
-  repos: GitHubRepository[];
-  allRepos: GitHubRepository[];
-}
-
-export interface RepoListHandle {
-  fetchWorkflows: () => Promise<void>;
-  isLoadingWorkflows: boolean;
-}
+import { RepoCard } from "./RepoCard";
+import type { RepoListProps, RepoListHandle, RepoExtraInfo } from "../types";
+import { fetchBatchReleases } from "../services/releaseService";
+import { fetchBatchWorkflows } from "../services/workflowService";
 
 export const RepoList = forwardRef<RepoListHandle, RepoListProps>(({ repos, allRepos }, ref) => {
   const [extraInfo, setExtraInfo] = useState<Record<string, RepoExtraInfo>>({});
@@ -27,32 +20,24 @@ export const RepoList = forwardRef<RepoListHandle, RepoListProps>(({ repos, allR
     hasLoadedReleases.current = true;
     setIsLoadingReleases(true);
     
-    const fetchReleases = async () => {
+    const loadReleases = async () => {
       try {
         const repoRequests = repos.map((repo) => {
           const [owner, repoName] = repo.full_name.split("/");
           return { owner, repo: repoName };
         });
 
-        const releasesRes = await fetch("/api/github/batch-releases", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ repos: repoRequests }),
-        });
-
-        if (releasesRes.ok) {
-          const data = await releasesRes.json();
-          const updated: Record<string, RepoExtraInfo> = {};
-          
-          for (const [key, value] of Object.entries(data.data)) {
-            updated[key] = {
-              release: (value as { release: RepoExtraInfo["release"] }).release,
-              workflow: null,
-            };
-          }
-          
-          setExtraInfo(updated);
+        const releasesData = await fetchBatchReleases(repoRequests);
+        const updated: Record<string, RepoExtraInfo> = {};
+        
+        for (const [key, value] of Object.entries(releasesData)) {
+          updated[key] = {
+            release: value.release,
+            workflow: null,
+          };
         }
+        
+        setExtraInfo(updated);
       } catch (error) {
         console.error("Error fetching releases:", error);
       } finally {
@@ -60,7 +45,7 @@ export const RepoList = forwardRef<RepoListHandle, RepoListProps>(({ repos, allR
       }
     };
 
-    fetchReleases();
+    loadReleases();
   }, [repos]);
 
   // Cargar workflows manualmente con el botón
@@ -74,26 +59,18 @@ export const RepoList = forwardRef<RepoListHandle, RepoListProps>(({ repos, allR
         return { owner, repo: repoName };
       });
 
-      const workflowsRes = await fetch("/api/github/batch-workflows", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repos: repoRequests }),
+      const workflowsData = await fetchBatchWorkflows(repoRequests);
+      
+      setExtraInfo((prev) => {
+        const updated = { ...prev };
+        for (const [key, value] of Object.entries(workflowsData)) {
+          updated[key] = {
+            ...updated[key],
+            workflow: value.workflow,
+          };
+        }
+        return updated;
       });
-
-      if (workflowsRes.ok) {
-        const data = await workflowsRes.json();
-        
-        setExtraInfo((prev) => {
-          const updated = { ...prev };
-          for (const [key, value] of Object.entries(data.data)) {
-            updated[key] = {
-              ...updated[key],
-              workflow: (value as { workflow: RepoExtraInfo["workflow"] }).workflow,
-            };
-          }
-          return updated;
-        });
-      }
     } catch (error) {
       console.error("Error fetching workflows:", error);
     } finally {

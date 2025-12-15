@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { RepoList, RepoListHandle } from "@/components/repos/RepoList";
+import { RepoList, type RepoListHandle } from "@/modules/repos";
 import { GitHubRepository } from "@/types/github";
 
 type SortOption = "updated" | "name";
