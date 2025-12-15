@@ -2,89 +2,33 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { GitHubRepository } from "@/types/github";
-
-interface AppDependencyProbingPath {
-  repo: string;
-  version: string;
-  release_status: string;
-  authTokenSecret?: string;
-  projects?: string;
-}
-
-interface FileDependency {
-  name: string;
-  path: string;
-  sha: string;
-  size: number;
-}
-
-interface AppDependency {
-  id: string;
-  name: string;
-  publisher: string;
-  version: string;
-}
-
-// Dependencia extraída del NavxManifest.xml de un archivo .app
-interface AppFileManifestDependency {
-  id: string;
-  name: string;
-  publisher: string;
-  minVersion: string;
-}
-
-// Información del manifest de un archivo .app
-interface AppFileManifest {
-  id: string;
-  name: string;
-  publisher: string;
-  version: string;
-  dependencies: AppFileManifestDependency[];
-}
-
-// Información de dependencias de un archivo .app
-interface AppFileDependencyInfo {
-  fileName: string;
-  manifest: AppFileManifest | null;
-  error?: string;
-}
-
-// Información de dependencias faltantes por repositorio
-interface MissingDependencyInfo {
-  repoFullName: string;
-  missingRepos: string[]; // URLs de repos que faltan
-  missingFiles: string[]; // Nombres de archivos .app que faltan
-}
-
-// Información de dependencias faltantes por archivo .app
-interface MissingFileDependencyInfo {
-  fileName: string;
-  missingDependencies: AppFileManifestDependency[]; // Dependencias que faltan
-}
-
-// Nodo del árbol de dependencias
-interface DependencyTreeNode {
-  repo: string; // URL del repo
-  depth: number; // Nivel de profundidad para indentación (0 = raíz)
-  parentRepo: string | null; // URL del repo padre (null si es raíz)
-  children: string[]; // URLs de repos hijos
-}
-
-// Respuesta del endpoint repo-dependencies
-interface RepoDependencies {
-  repoFullName: string;
-  repoDependencies: AppDependencyProbingPath[];
-  fileDependencies: FileDependency[];
-  error?: string;
-}
-
-interface DependenciesModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  owner: string;
-  repo: string;
-  allRepos: GitHubRepository[];
-}
+import type {
+  AppDependencyProbingPath,
+  FileDependency,
+  AppDependency,
+  AppFileManifestDependency,
+  AppFileManifest,
+  AppFileDependencyInfo,
+  MissingDependencyInfo,
+  MissingFileDependencyInfo,
+  DependencyTreeNode,
+  RepoDependencies,
+  DependenciesModalProps,
+  SaveStep,
+  AddRepoModalProps,
+  AddFileModalProps,
+} from "../types";
+import {
+  fetchFileContent,
+  fetchBranches,
+  fetchFileDependencies,
+  fetchRepoDependencies,
+  analyzeAppFile,
+  updateSettings,
+  uploadDependency,
+  deleteDependency,
+} from "../services/dependenciesService";
+import { parseRepoUrl, getRepoName, formatFileSize } from "../services/utils";
 
 const LoadingSpinner = ({ text = "Cargando..." }: { text?: string }) => (
   <div className="flex items-center justify-center h-32">
@@ -106,19 +50,6 @@ const EmptyState = ({ message, icon }: { message: string; icon: React.ReactNode 
     </div>
   </div>
 );
-
-const formatFileSize = (size: number) => 
-  size >= 1024 * 1024 
-    ? `${(size / (1024 * 1024)).toFixed(2)} MB`
-    : `${(size / 1024).toFixed(2)} KB`;
-
-type SaveStep = 
-  | { status: 'idle' }
-  | { status: 'updating-settings'; message: 'Actualizando settings.json...' }
-  | { status: 'uploading-files'; message: string; current: number; total: number }
-  | { status: 'deleting-files'; message: string; current: number; total: number }
-  | { status: 'creating-pr'; message: 'Creando Pull Request...' }
-  | { status: 'completed'; message: 'Pull Request creado exitosamente' };
 
 export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: DependenciesModalProps) {
   const [settingsData, setSettingsData] = useState<{
@@ -1404,14 +1335,6 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
   );
 }
 
-interface AddRepoModalProps {
-  onClose: () => void;
-  repos: GitHubRepository[];
-  currentRepoFullName: string;
-  existingDeps: AppDependencyProbingPath[];
-  onAdd: (repos: GitHubRepository[], version: string, releaseStatus: string) => void;
-}
-
 function AddRepoModal({ onClose, repos, currentRepoFullName, existingDeps, onAdd }: AddRepoModalProps) {
   const [selectedRepos, setSelectedRepos] = useState<Set<number>>(new Set());
   const [version, setVersion] = useState("latest");
@@ -1601,11 +1524,6 @@ function AddRepoModal({ onClose, repos, currentRepoFullName, existingDeps, onAdd
       </div>
     </div>
   );
-}
-
-interface AddFileModalProps {
-  onClose: () => void;
-  onAdd: (files: File[]) => void;
 }
 
 function AddFileModal({ onClose, onAdd }: AddFileModalProps) {
