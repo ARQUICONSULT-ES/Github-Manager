@@ -13,13 +13,34 @@ datasource db {
   provider = "postgresql"
 }
 
-// Tabla de ejemplo: Usuarios
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// Tabla principal: Tenants
+model Tenant {
+  id           Int           @id @default(autoincrement())
+  customer     String        @db.VarChar(50)
+  environments Environment[]
 
-  @@map("users")
+  @@map("tenants")
+}
+
+// Tabla relacionada: Environments
+model Environment {
+  tenantId   Int
+  name       String      @db.VarChar(50)
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  extensions Extension[]
+
+  @@id([tenantId, name])
+  @@map("environments")
+}
+
+// Tabla relacionada: Extensions
+model Extension {
+  tenantId        Int
+  environmentName String      @db.VarChar(50)
+  id              String      @default(uuid())
+  name            String      @db.VarChar(50)
+  environment     Environment @relation(fields: [tenantId, environmentName], references: [tenantId, name], onDelete: Cascade)
+
+  @@id([tenantId, environmentName, id])
+  @@map("extensions")
 }
