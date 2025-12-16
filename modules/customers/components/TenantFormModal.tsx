@@ -41,6 +41,9 @@ export default function TenantFormModal({
   // Determinar si es un tenant existente (tiene ID válido)
   const isExistingTenant = !!(tenant?.id && tenant.id.trim() !== "");
 
+  // Obtener el nombre del cliente para la confirmación
+  const customerName = customers.find(c => c.id === tenant?.customerId)?.customerName || tenant?.customerName || "";
+
   // Cargar customers al abrir el modal
   useEffect(() => {
     if (isOpen) {
@@ -171,7 +174,7 @@ export default function TenantFormModal({
       // Actualizar el formData con el nuevo token y expiración
       setFormData({
         ...formData,
-        token: "Token actualizado ✓",
+        token: result.token || "Token actualizado ✓",
         tokenExpiresAt: result.tokenExpiresAt instanceof Date 
           ? result.tokenExpiresAt.toISOString() 
           : result.tokenExpiresAt,
@@ -179,16 +182,14 @@ export default function TenantFormModal({
 
       setTokenRefreshSuccess("Token refrescado exitosamente");
       
-      // Llamar a onSave para recargar los datos del tenant
-      onSave();
-      
       // Limpiar mensaje de éxito después de 5 segundos
       setTimeout(() => {
         setTokenRefreshSuccess("");
       }, 5000);
       
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al refrescar el token");
+      const errorMessage = err instanceof Error ? err.message : "Error al refrescar el token";
+      setError(errorMessage);
     } finally {
       setRefreshingToken(false);
     }
@@ -435,41 +436,70 @@ export default function TenantFormModal({
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Token
                       </label>
-                      <input
-                        type="text"
-                        disabled
-                        value={formData.token || "No generado"}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-md cursor-not-allowed"
-                      />
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          disabled
+                          value={
+                            formData.token 
+                              ? formData.token.length > 50
+                                ? `${formData.token.substring(0, 20)}...${formData.token.substring(formData.token.length - 20)}`
+                                : formData.token
+                              : "No generado"
+                          }
+                          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-md cursor-not-allowed text-xs font-mono"
+                          title={formData.token || "No generado"}
+                        />
+                      </div>
+                      {isExistingTenant && !formData.token && (
+                        <p className="mt-1 text-xs text-yellow-600 dark:text-yellow-400">
+                          Usa el botón &quot;Refrescar Token&quot; para generar un token
+                        </p>
+                      )}
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Token Expira
                       </label>
-                      <input
-                        type="text"
-                        disabled
-                        value={
-                          formData.tokenExpiresAt
-                            ? new Date(formData.tokenExpiresAt).toLocaleString('es-ES', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })
-                            : "N/A"
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-md cursor-not-allowed"
-                      />
-                      {isExistingTenant && formData.tokenExpiresAt && (
-                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(formData.tokenExpiresAt) < new Date() 
-                            ? "⚠️ Token expirado" 
-                            : "✓ Token válido"}
-                        </p>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          disabled
+                          value={
+                            formData.tokenExpiresAt
+                              ? new Date(formData.tokenExpiresAt).toLocaleString('es-ES', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })
+                              : "N/A"
+                          }
+                          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-md cursor-not-allowed"
+                        />
+                        {isExistingTenant && formData.tokenExpiresAt && (
+                          <div 
+                            className={`flex-shrink-0 w-3 h-3 rounded-full ${
+                              new Date(formData.tokenExpiresAt) < new Date() 
+                                ? "bg-red-500 dark:bg-red-600" 
+                                : "bg-green-500 dark:bg-green-600"
+                            }`}
+                            title={
+                              new Date(formData.tokenExpiresAt) < new Date() 
+                                ? "Token expirado" 
+                                : "Token válido"
+                            }
+                          >
+                            <span className="sr-only">
+                              {new Date(formData.tokenExpiresAt) < new Date() 
+                                ? "Token expirado" 
+                                : "Token válido"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -516,7 +546,7 @@ export default function TenantFormModal({
         onConfirm={handleDelete}
         title="Olvidar tenant"
         message="Esta acción no borrará el tenant real del cliente, solo desaparecerá de esta aplicación. Para olvidar el tenant, escribe el nombre del cliente:"
-        confirmationWord={tenant?.customerName || ""}
+        confirmationWord={customerName}
         confirmButtonText="Olvidar"
         loading={loading}
       />

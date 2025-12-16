@@ -3,10 +3,11 @@ import prisma from "@/lib/prisma";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    // En Next.js 15, params es una Promise y debe ser unwrapped
+    const { id } = await context.params;
 
     // Obtener el tenant de la base de datos
     const tenant = await prisma.tenant.findUnique({
@@ -22,8 +23,17 @@ export async function POST(
 
     // Validar que el tenant tenga la configuración necesaria
     if (!tenant.grantType || !tenant.clientId || !tenant.clientSecret || !tenant.scope) {
+      const missingFields = [];
+      if (!tenant.grantType) missingFields.push("grantType");
+      if (!tenant.clientId) missingFields.push("clientId");
+      if (!tenant.clientSecret) missingFields.push("clientSecret");
+      if (!tenant.scope) missingFields.push("scope");
+      
       return NextResponse.json(
-        { error: "El tenant no tiene configuración de autenticación completa" },
+        { 
+          error: "El tenant no tiene configuración de autenticación completa",
+          missingFields 
+        },
         { status: 400 }
       );
     }
@@ -46,10 +56,13 @@ export async function POST(
     });
 
     if (!authRes.ok) {
-      const errorData = await authRes.json();
-      console.error("Error en autenticación:", errorData);
+      const errorData = await authRes.json().catch(() => ({ error: "No se pudo parsear la respuesta de error" }));
       return NextResponse.json(
-        { error: "Error al obtener el token de Business Central", details: errorData },
+        { 
+          error: "Error al obtener el token de Business Central", 
+          details: errorData,
+          status: authRes.status 
+        },
         { status: authRes.status }
       );
     }
@@ -80,12 +93,17 @@ export async function POST(
 
     return NextResponse.json({
       message: "Token refrescado exitosamente",
+      token: updatedTenant.token,
       tokenExpiresAt: updatedTenant.tokenExpiresAt,
     });
   } catch (error) {
     console.error("Error al refrescar token:", error);
+    const errorMessage = error instanceof Error ? error.message : "Error desconocido";
     return NextResponse.json(
-      { error: "Error interno del servidor" },
+      { 
+        error: "Error interno del servidor",
+        message: errorMessage,
+      },
       { status: 500 }
     );
   }

@@ -118,10 +118,11 @@ export async function deleteTenant(id: string): Promise<void> {
  * Refresca el token de autenticación de un tenant
  */
 export async function refreshTenantToken(id: string): Promise<{
-  success: boolean;
-  token: string;
+  success?: boolean;
+  token?: string;
   tokenExpiresAt: string | Date;
-  expiresIn: number;
+  expiresIn?: number;
+  message?: string;
 }> {
   try {
     const response = await fetch(`${API_BASE}/tenants/${id}/refresh-token`, {
@@ -132,8 +133,28 @@ export async function refreshTenantToken(id: string): Promise<{
     });
     
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.details || errorData.error || 'Error al refrescar el token');
+      const errorData = await response.json().catch(() => ({ error: "Error de red o respuesta inválida" }));
+      
+      // Construir mensaje de error más detallado
+      let errorMessage = "Error al refrescar el token";
+      
+      if (errorData.details) {
+        if (typeof errorData.details === 'string') {
+          errorMessage = errorData.details;
+        } else if (errorData.details.error_description) {
+          errorMessage = errorData.details.error_description;
+        } else if (errorData.details.error) {
+          errorMessage = errorData.details.error;
+        }
+      } else if (errorData.error) {
+        errorMessage = errorData.error;
+      }
+      
+      if (errorData.missingFields) {
+        errorMessage += `. Faltan campos: ${errorData.missingFields.join(', ')}`;
+      }
+      
+      throw new Error(errorMessage);
     }
     
     const data = await response.json();

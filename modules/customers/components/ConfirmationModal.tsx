@@ -48,17 +48,26 @@ export default function ConfirmationModal({
         <p className="text-gray-700 dark:text-gray-300 mb-4">
           {message}
         </p>
-        <p className="font-semibold text-gray-900 dark:text-white mb-4 p-2 bg-gray-100 dark:bg-gray-800 rounded">
-          {confirmationWord}
-        </p>
-        <input
-          type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          placeholder={`Escribe "${confirmationWord}" para confirmar`}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 mb-6"
-          disabled={loading}
-        />
+        {confirmationWord && (
+          <>
+            <p className="font-semibold text-gray-900 dark:text-white mb-4 p-2 bg-gray-100 dark:bg-gray-800 rounded">
+              {confirmationWord}
+            </p>
+            <input
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder={`Escribe "${confirmationWord}" para confirmar`}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 mb-6"
+              disabled={loading}
+            />
+          </>
+        )}
+        {!confirmationWord && (
+          <div className="mb-6 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-400 rounded text-sm">
+            ⚠️ No se pudo cargar el nombre del cliente. Espera un momento y vuelve a intentarlo.
+          </div>
+        )}
         <div className="flex justify-end gap-3">
           <button
             type="button"
@@ -71,7 +80,7 @@ export default function ConfirmationModal({
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={loading || inputValue !== confirmationWord}
+            disabled={loading || (!!confirmationWord && inputValue !== confirmationWord)}
             className="px-4 py-2 text-white bg-red-600 rounded-md hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 disabled:opacity-50 transition-colors"
           >
             {loading ? "Procesando..." : confirmButtonText}
