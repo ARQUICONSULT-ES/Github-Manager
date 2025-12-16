@@ -35,6 +35,9 @@ export default function TenantFormModal({
   const [error, setError] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Determinar si es un tenant existente (tiene ID válido)
+  const isExistingTenant = !!(tenant?.id && tenant.id.trim() !== "");
+
   // Cargar customers al abrir el modal
   useEffect(() => {
     if (isOpen) {
@@ -93,11 +96,11 @@ export default function TenantFormModal({
     setError("");
 
     try {
-      const url = tenant
+      const url = isExistingTenant
         ? `/api/customers/tenants/${tenant.id}`
         : "/api/customers/tenants";
       
-      const method = tenant ? "PUT" : "POST";
+      const method = isExistingTenant ? "PUT" : "POST";
 
       const response = await fetch(url, {
         method,
@@ -152,7 +155,7 @@ export default function TenantFormModal({
       <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">
-            {tenant ? "Editar Tenant" : "Crear Nuevo Tenant"}
+            {isExistingTenant ? "Editar Tenant" : "Crear Nuevo Tenant"}
           </h2>
 
           {error && (
@@ -177,32 +180,20 @@ export default function TenantFormModal({
                     <input
                       type="text"
                       required
-                      disabled={!!tenant}
+                      disabled={isExistingTenant}
                       value={formData.id}
                       onChange={(e) =>
                         setFormData({ ...formData, id: e.target.value })
                       }
                       className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
-                        tenant
+                        isExistingTenant
                           ? "border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed"
                           : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-blue-500 dark:focus:ring-blue-400"
                       }`}
                       placeholder="00000000-0000-0000-0000-000000000000"
                     />
-                    {!tenant && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const uuid = crypto.randomUUID();
-                          setFormData({ ...formData, id: uuid });
-                        }}
-                        className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
-                      >
-                        Generar UUID
-                      </button>
-                    )}
                   </div>
-                  {!tenant && (
+                  {!isExistingTenant && (
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                       Puedes escribir un UUID manualmente o generar uno automáticamente
                     </p>
@@ -219,9 +210,9 @@ export default function TenantFormModal({
                     onChange={(e) =>
                       setFormData({ ...formData, customerId: e.target.value })
                     }
-                    disabled={!!tenant}
+                    disabled={isExistingTenant}
                     className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
-                      tenant
+                      isExistingTenant
                         ? "border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed"
                         : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-blue-500 dark:focus:ring-blue-400"
                     }`}
@@ -233,7 +224,7 @@ export default function TenantFormModal({
                       </option>
                     ))}
                   </select>
-                  {!tenant && (
+                  {!isExistingTenant && (
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                       El cliente no puede cambiarse después de crear el tenant
                     </p>
@@ -355,7 +346,7 @@ export default function TenantFormModal({
 
             {/* Botones de acción */}
             <div className="flex justify-between gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-              {tenant && (
+              {isExistingTenant && (
                 <button
                   type="button"
                   onClick={() => setShowDeleteConfirm(true)}
@@ -379,7 +370,7 @@ export default function TenantFormModal({
                   disabled={loading}
                   className="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 disabled:opacity-50 transition-colors"
                 >
-                  {loading ? "Guardando..." : tenant ? "Actualizar" : "Crear"}
+                  {loading ? "Guardando..." : isExistingTenant ? "Actualizar" : "Crear"}
                 </button>
               </div>
             </div>
@@ -389,7 +380,7 @@ export default function TenantFormModal({
 
       {/* Modal de confirmación de eliminación */}
       <ConfirmationModal
-        isOpen={showDeleteConfirm && !!tenant}
+        isOpen={showDeleteConfirm && isExistingTenant}
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={handleDelete}
         title="Olvidar tenant"

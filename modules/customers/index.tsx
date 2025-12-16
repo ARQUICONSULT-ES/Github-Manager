@@ -237,7 +237,7 @@ export function TenantsPage() {
                 : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
             }`}
           >
-            Agrupado
+            Vista agrupada
           </button>
           <button
             onClick={() => setViewMode("customers")}
