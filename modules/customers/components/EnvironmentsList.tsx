@@ -1,21 +1,33 @@
 "use client";
 
 import type { Environment } from "../types";
+import { sortEnvironments, filterActivEnvironments, isSoftDeleted } from "../utils/environmentUtils";
 
 interface EnvironmentsListProps {
   environments: Environment[];
   isLoading?: boolean;
   maxVisible?: number;
   onShowMore?: () => void;
+  showSoftDeleted?: boolean; // Mostrar soft deleted (para modal)
 }
 
 function EnvironmentBadge({ environment }: { environment: Environment }) {
-  const getStatusColor = (status?: string | null) => {
+  const isDeleted = isSoftDeleted(environment);
+  
+  const getStatusColor = (status?: string | null, isSoftDeleted?: boolean) => {
+    // SoftDeleted tiene prioridad
+    if (isSoftDeleted) {
+      return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 line-through opacity-75";
+    }
+    
     if (!status) return "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300";
     
     const statusLower = status.toLowerCase();
     if (statusLower === "active" || statusLower === "ready") {
       return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+    }
+    if (statusLower === "pending") {
+      return "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
     }
     if (statusLower === "preparing" || statusLower === "mounting") {
       return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
@@ -36,13 +48,18 @@ function EnvironmentBadge({ environment }: { environment: Environment }) {
   };
 
   return (
-    <div className="group relative inline-flex items-center gap-1.5 px-2 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md hover:border-blue-400 dark:hover:border-blue-500 transition-all">
+    <div className={`group relative inline-flex items-center gap-1.5 px-2 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md hover:border-blue-400 dark:hover:border-blue-500 transition-all ${isDeleted ? 'opacity-60' : ''}`}>
       <span className="text-xs">{getTypeIcon(environment.type)}</span>
-      <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate max-w-[100px]">
+      <span className={`text-xs font-medium text-gray-700 dark:text-gray-300 truncate max-w-[100px] ${isDeleted ? 'line-through' : ''}`}>
         {environment.name}
       </span>
-      {environment.status && (
-        <span className={`text-[10px] px-1.5 py-0.5 rounded ${getStatusColor(environment.status)}`}>
+      {isDeleted && (
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+          DELETED
+        </span>
+      )}
+      {!isDeleted && environment.status && (
+        <span className={`text-[10px] px-1.5 py-0.5 rounded ${getStatusColor(environment.status, isDeleted)}`}>
           {environment.status}
         </span>
       )}
@@ -62,8 +79,16 @@ function EnvironmentBadge({ environment }: { environment: Environment }) {
           {environment.status && (
             <div className="flex justify-between">
               <span className="text-gray-500 dark:text-gray-400">Estado:</span>
-              <span className={`font-medium ${getStatusColor(environment.status)}`}>
+              <span className={`font-medium ${getStatusColor(environment.status, isDeleted)}`}>
                 {environment.status}
+              </span>
+            </div>
+          )}
+          {isDeleted && (
+            <div className="flex justify-between">
+              <span className="text-gray-500 dark:text-gray-400">Eliminado:</span>
+              <span className="font-medium text-red-600 dark:text-red-400">
+                Sí
               </span>
             </div>
           )}
@@ -95,7 +120,8 @@ export function EnvironmentsList({
   environments, 
   isLoading = false,
   maxVisible = 3,
-  onShowMore 
+  onShowMore,
+  showSoftDeleted = false // Por defecto no mostrar soft deleted en preview
 }: EnvironmentsListProps) {
   if (isLoading) {
     return (
@@ -106,7 +132,13 @@ export function EnvironmentsList({
     );
   }
 
-  if (environments.length === 0) {
+  // Filtrar soft deleted si no queremos mostrarlos
+  const filteredEnvs = showSoftDeleted ? environments : filterActivEnvironments(environments);
+  
+  // Ordenar environments
+  const sortedEnvs = sortEnvironments(filteredEnvs);
+
+  if (sortedEnvs.length === 0) {
     return (
       <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 py-2">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -117,8 +149,8 @@ export function EnvironmentsList({
     );
   }
 
-  const visibleEnvironments = environments.slice(0, maxVisible);
-  const remainingCount = environments.length - maxVisible;
+  const visibleEnvironments = sortedEnvs.slice(0, maxVisible);
+  const remainingCount = sortedEnvs.length - maxVisible;
 
   return (
     <div className="flex items-center gap-2 flex-wrap">

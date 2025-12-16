@@ -71,16 +71,50 @@ export async function POST(
 
     // Sincronizar con la base de datos usando transacción
     const syncedEnvironments = await prisma.$transaction(async (tx) => {
-      // Eliminar environments existentes del tenant
-      await tx.environment.deleteMany({
+      // Obtener environments existentes
+      const existingEnvironments = await tx.environment.findMany({
         where: { tenantId: tenant.id },
       });
 
-      // Crear los nuevos environments
+      // Crear un Set con los nombres de los environments actuales de BC
+      const currentEnvNames = new Set(data.value.map((env) => env.name));
+
+      // Marcar como SoftDeleted los que ya no existen en BC
+      const envsToSoftDelete = existingEnvironments.filter(
+        (env) => !currentEnvNames.has(env.name)
+      );
+
+      for (const env of envsToSoftDelete) {
+        await tx.environment.update({
+          where: {
+            tenantId_name: {
+              tenantId: tenant.id,
+              name: env.name,
+            },
+          },
+          data: { status: "SoftDeleted" },
+        });
+      }
+
+      // Crear o actualizar los environments actuales de BC
       const environments = await Promise.all(
         data.value.map((bcEnv: BCEnvironment) =>
-          tx.environment.create({
-            data: {
+          tx.environment.upsert({
+            where: {
+              tenantId_name: {
+                tenantId: tenant.id,
+                name: bcEnv.name,
+              },
+            },
+            update: {
+              type: bcEnv.type,
+              applicationVersion: bcEnv.applicationVersion,
+              status: bcEnv.status,
+              webClientUrl: bcEnv.webClientLoginUrl,
+              locationName: bcEnv.locationName || null,
+              platformVersion: bcEnv.platformVersion || null,
+            },
+            create: {
               tenantId: tenant.id,
               name: bcEnv.name,
               type: bcEnv.type,

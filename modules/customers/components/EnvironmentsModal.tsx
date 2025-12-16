@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import type { Environment } from "../types";
+import { sortEnvironments, isSoftDeleted } from "../utils/environmentUtils";
 
 interface EnvironmentsModalProps {
   isOpen: boolean;
@@ -35,12 +36,20 @@ export function EnvironmentsModal({
 
   if (!isOpen) return null;
 
-  const getStatusColor = (status?: string | null) => {
+  const getStatusColor = (status?: string | null, isSoftDeleted?: boolean) => {
+    // SoftDeleted tiene prioridad
+    if (isSoftDeleted) {
+      return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+    }
+    
     if (!status) return "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300";
     
     const statusLower = status.toLowerCase();
     if (statusLower === "active" || statusLower === "ready") {
       return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+    }
+    if (statusLower === "pending") {
+      return "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
     }
     if (statusLower === "preparing" || statusLower === "mounting") {
       return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
@@ -116,23 +125,30 @@ export function EnvironmentsModal({
             </div>
           ) : (
             <div className="space-y-3">
-              {environments.map((env) => (
-                <div
-                  key={`${env.tenantId}-${env.name}`}
-                  className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-400 dark:hover:border-blue-500 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-semibold text-gray-900 dark:text-white">
-                          {env.name}
-                        </h3>
-                        {env.status && (
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getStatusColor(env.status)}`}>
-                            {env.status}
-                          </span>
-                        )}
-                      </div>
+              {sortEnvironments(environments).map((env) => {
+                const isDeleted = isSoftDeleted(env);
+                return (
+                  <div
+                    key={`${env.tenantId}-${env.name}`}
+                    className={`p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-400 dark:hover:border-blue-500 transition-colors ${isDeleted ? 'opacity-60 bg-red-50 dark:bg-red-900/10' : ''}`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className={`font-semibold text-gray-900 dark:text-white ${isDeleted ? 'line-through' : ''}`}>
+                            {env.name}
+                          </h3>
+                          {isDeleted && (
+                            <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                              ELIMINADO
+                            </span>
+                          )}
+                          {!isDeleted && env.status && (
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getStatusColor(env.status, isDeleted)}`}>
+                              {env.status}
+                            </span>
+                          )}
+                        </div>
                       
                       <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                         {env.type && (
@@ -179,7 +195,8 @@ export function EnvironmentsModal({
                     </div>
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
           )}
         </div>

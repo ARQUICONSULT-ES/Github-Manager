@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { TenantList } from "./components/TenantList";
+import { TenantCard } from "./components/TenantCard";
 import { CustomerList } from "./components/CustomerList";
 import TenantFormModal from "./components/TenantFormModal";
 import CustomerFormModal from "./components/CustomerFormModal";
@@ -469,20 +470,13 @@ export function TenantsPage() {
                 {isExpanded && (
                   <div className="p-4">
                     {customerTenants.length > 0 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {customerTenants.map((tenant) => (
-                          <div
-                            key={tenant.id}
-                            onClick={() => handleEditTenant(tenant)}
-                            className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md hover:border-blue-500 dark:hover:border-blue-400 transition-all cursor-pointer"
-                          >
-                            <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
-                              {tenant.id}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                              Actualizado {new Date(tenant.modifiedAt).toLocaleDateString()}
-                            </p>
-                          </div>
+                          <TenantCard 
+                            key={tenant.id} 
+                            tenant={tenant} 
+                            onEdit={handleEditTenant}
+                          />
                         ))}
                       </div>
                     ) : (
