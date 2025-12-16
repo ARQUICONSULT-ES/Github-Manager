@@ -279,7 +279,7 @@ export function TenantsPage() {
                 d="M12 4v16m8-8H4"
               />
             </svg>
-            Crear Tenant
+            Añadir tenant
           </button>
         </div>
       </div>

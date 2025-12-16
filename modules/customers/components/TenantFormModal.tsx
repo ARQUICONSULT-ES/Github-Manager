@@ -110,7 +110,7 @@ export default function TenantFormModal({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Error al eliminar el tenant");
+        throw new Error(errorData.error || "Error al olvidar el tenant");
       }
 
       onSave();
@@ -311,7 +311,7 @@ export default function TenantFormModal({
                   disabled={loading}
                   className="px-4 py-2 text-white bg-red-600 rounded-md hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 disabled:opacity-50 transition-colors"
                 >
-                  Eliminar
+                  Olvidar
                 </button>
               )}
               <div className="flex gap-3 ml-auto">
@@ -341,10 +341,10 @@ export default function TenantFormModal({
         isOpen={showDeleteConfirm && !!tenant}
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={handleDelete}
-        title="Confirmar eliminación"
-        message="Esta acción no borrará el tenant real del cliente, solo desaparecerá de esta aplicación. Para confirmar la eliminación del tenant, escribe el nombre del cliente:"
+        title="Olvidar tenant"
+        message="Esta acción no borrará el tenant real del cliente, solo desaparecerá de esta aplicación. Para olvidar el tenant, escribe el nombre del cliente:"
         confirmationWord={tenant?.customerName || ""}
-        confirmButtonText="Eliminar"
+        confirmButtonText="Olvidar"
         loading={loading}
       />
     </div>

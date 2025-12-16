@@ -113,3 +113,33 @@ export async function deleteTenant(id: string): Promise<void> {
     throw error;
   }
 }
+
+/**
+ * Refresca el token de autenticación de un tenant
+ */
+export async function refreshTenantToken(id: string): Promise<{
+  success: boolean;
+  token: string;
+  tokenExpiresAt: string | Date;
+  expiresIn: number;
+}> {
+  try {
+    const response = await fetch(`${API_BASE}/tenants/${id}/refresh-token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.details || errorData.error || 'Error al refrescar el token');
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error refreshing token:", error);
+    throw error;
+  }
+}
