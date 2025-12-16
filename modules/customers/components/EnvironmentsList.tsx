@@ -14,53 +14,61 @@ interface EnvironmentsListProps {
 function EnvironmentBadge({ environment }: { environment: Environment }) {
   const isDeleted = isSoftDeleted(environment);
   
-  const getStatusColor = (status?: string | null, isSoftDeleted?: boolean) => {
-    // SoftDeleted tiene prioridad
+  // Círculo de estado (Verde=Active, Amarillo=Pending, Rojo=SoftDeleted)
+  const getStatusDotColor = (status?: string | null, isSoftDeleted?: boolean) => {
     if (isSoftDeleted) {
-      return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 line-through opacity-75";
+      return "bg-red-500";
     }
     
-    if (!status) return "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300";
+    if (!status) return "bg-gray-400";
     
     const statusLower = status.toLowerCase();
     if (statusLower === "active" || statusLower === "ready") {
-      return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+      return "bg-green-500";
     }
     if (statusLower === "pending") {
-      return "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
+      return "bg-yellow-500";
     }
     if (statusLower === "preparing" || statusLower === "mounting") {
-      return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
+      return "bg-yellow-400";
     }
     if (statusLower === "removing" || statusLower === "notready") {
-      return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+      return "bg-red-500";
     }
-    return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+    return "bg-gray-400";
   };
 
-  const getTypeIcon = (type?: string | null) => {
-    if (!type) return "🔹";
+  // Badge de tipo (Verde=Production, Azul=Sandbox)
+  const getTypeBadgeColor = (type?: string | null) => {
+    if (!type) return "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300";
+    
     const typeLower = type.toLowerCase();
-    if (typeLower.includes("production")) return "🟢";
-    if (typeLower.includes("sandbox")) return "🟡";
-    if (typeLower.includes("test")) return "🔵";
-    return "🔹";
+    if (typeLower.includes("production")) {
+      return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+    }
+    if (typeLower.includes("sandbox")) {
+      return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+    }
+    if (typeLower.includes("test")) {
+      return "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400";
+    }
+    return "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300";
   };
 
   return (
-    <div className={`group relative inline-flex items-center gap-1.5 px-2 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md hover:border-blue-400 dark:hover:border-blue-500 transition-all ${isDeleted ? 'opacity-60' : ''}`}>
-      <span className="text-xs">{getTypeIcon(environment.type)}</span>
+    <div className={`group relative inline-flex items-center gap-2 px-2 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md hover:border-blue-400 dark:hover:border-blue-500 transition-all ${isDeleted ? 'opacity-60' : ''}`}>
+      {/* Círculo de estado */}
+      <span className={`w-2 h-2 rounded-full ${getStatusDotColor(environment.status, isDeleted)}`} />
+      
+      {/* Nombre del entorno */}
       <span className={`text-xs font-medium text-gray-700 dark:text-gray-300 truncate max-w-[100px] ${isDeleted ? 'line-through' : ''}`}>
         {environment.name}
       </span>
-      {isDeleted && (
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-          DELETED
-        </span>
-      )}
-      {!isDeleted && environment.status && (
-        <span className={`text-[10px] px-1.5 py-0.5 rounded ${getStatusColor(environment.status, isDeleted)}`}>
-          {environment.status}
+      
+      {/* Badge de tipo de entorno */}
+      {environment.type && (
+        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${getTypeBadgeColor(environment.type)}`}>
+          {environment.type}
         </span>
       )}
       
@@ -71,17 +79,22 @@ function EnvironmentBadge({ environment }: { environment: Environment }) {
             {environment.name}
           </div>
           {environment.type && (
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className="text-gray-500 dark:text-gray-400">Tipo:</span>
-              <span className="text-gray-900 dark:text-white font-medium">{environment.type}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${getTypeBadgeColor(environment.type)}`}>
+                {environment.type}
+              </span>
             </div>
           )}
           {environment.status && (
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className="text-gray-500 dark:text-gray-400">Estado:</span>
-              <span className={`font-medium ${getStatusColor(environment.status, isDeleted)}`}>
-                {environment.status}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className={`w-2 h-2 rounded-full ${getStatusDotColor(environment.status, isDeleted)}`} />
+                <span className="text-gray-900 dark:text-white font-medium">
+                  {environment.status}
+                </span>
+              </div>
             </div>
           )}
           {isDeleted && (

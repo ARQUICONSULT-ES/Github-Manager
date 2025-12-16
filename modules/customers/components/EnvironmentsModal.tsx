@@ -36,6 +36,47 @@ export function EnvironmentsModal({
 
   if (!isOpen) return null;
 
+  // Círculo de estado (Verde=Active, Amarillo=Pending, Rojo=SoftDeleted)
+  const getStatusDotColor = (status?: string | null, isSoftDeleted?: boolean) => {
+    if (isSoftDeleted) {
+      return "bg-red-500";
+    }
+    
+    if (!status) return "bg-gray-400";
+    
+    const statusLower = status.toLowerCase();
+    if (statusLower === "active" || statusLower === "ready") {
+      return "bg-green-500";
+    }
+    if (statusLower === "pending") {
+      return "bg-yellow-500";
+    }
+    if (statusLower === "preparing" || statusLower === "mounting") {
+      return "bg-yellow-400";
+    }
+    if (statusLower === "removing" || statusLower === "notready") {
+      return "bg-red-500";
+    }
+    return "bg-gray-400";
+  };
+
+  // Badge de tipo (Verde=Production, Azul=Sandbox)
+  const getTypeBadgeColor = (type?: string | null) => {
+    if (!type) return "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300";
+    
+    const typeLower = type.toLowerCase();
+    if (typeLower.includes("production")) {
+      return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+    }
+    if (typeLower.includes("sandbox")) {
+      return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+    }
+    if (typeLower.includes("test")) {
+      return "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400";
+    }
+    return "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300";
+  };
+
   const getStatusColor = (status?: string | null, isSoftDeleted?: boolean) => {
     // SoftDeleted tiene prioridad
     if (isSoftDeleted) {
@@ -138,23 +179,29 @@ export function EnvironmentsModal({
                           <h3 className={`font-semibold text-gray-900 dark:text-white ${isDeleted ? 'line-through' : ''}`}>
                             {env.name}
                           </h3>
-                          {isDeleted && (
-                            <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                              ELIMINADO
-                            </span>
-                          )}
-                          {!isDeleted && env.status && (
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getStatusColor(env.status, isDeleted)}`}>
-                              {env.status}
+                          
+                          {/* Badge de tipo */}
+                          {env.type && (
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getTypeBadgeColor(env.type)}`}>
+                              {env.type}
                             </span>
                           )}
                         </div>
                       
                       <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                        {env.type && (
+                        {env.status && (
                           <div className="flex items-center gap-2">
-                            <span className="text-gray-500 dark:text-gray-400">Tipo:</span>
-                            <span className="text-gray-900 dark:text-white font-medium">{env.type}</span>
+                            <span className="text-gray-500 dark:text-gray-400">Estado:</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className={`w-2 h-2 rounded-full ${getStatusDotColor(env.status, isDeleted)}`} />
+                              <span className="text-gray-900 dark:text-white font-medium">{env.status}</span>
+                            </div>
+                          </div>
+                        )}
+                        {isDeleted && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-500 dark:text-gray-400">Eliminado:</span>
+                            <span className="text-red-600 dark:text-red-400 font-medium">Sí</span>
                           </div>
                         )}
                         {env.applicationVersion && (
