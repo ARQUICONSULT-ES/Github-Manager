@@ -77,6 +77,13 @@ export function TenantCard({ tenant, onEdit }: TenantCardProps) {
         </div>
       </div>
 
+      {/* Descripción del tenant */}
+      {tenant.description && (
+        <div className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+          {tenant.description}
+        </div>
+      )}
+
       {/* Footer con fecha de actualización */}
       <div className="mt-auto pt-2 border-t border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">

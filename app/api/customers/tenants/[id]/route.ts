@@ -36,7 +36,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { customerId, connectionId, grantType, clientId, clientSecret, scope, token, tokenExpiresAt } = body;
+    const { customerId, description, connectionId, grantType, clientId, clientSecret, scope, token, tokenExpiresAt } = body;
 
     const now = new Date();
 
@@ -71,6 +71,7 @@ export async function PUT(
       where: { id },
       data: {
         ...(customerId && { customerId }),
+        description: description !== undefined ? (description || null) : undefined,
         modifiedAt: now,
         connectionId: connectionId || null,
         grantType: grantType || null,

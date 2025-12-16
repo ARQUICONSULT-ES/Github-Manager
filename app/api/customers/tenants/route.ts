@@ -7,6 +7,7 @@ export async function GET() {
       select: {
         id: true,
         customerId: true,
+        description: true,
         createdAt: true,
         modifiedAt: true,
         customer: {
@@ -25,6 +26,7 @@ export async function GET() {
       id: tenant.id,
       customerId: tenant.customerId,
       customerName: tenant.customer.customerName,
+      description: tenant.description,
       createdAt: tenant.createdAt,
       modifiedAt: tenant.modifiedAt,
     }));
@@ -42,7 +44,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { id, customerId, connectionId, grantType, clientId, clientSecret, scope, token, tokenExpiresAt } = body;
+    const { id, customerId, description, connectionId, grantType, clientId, clientSecret, scope, token, tokenExpiresAt } = body;
 
     if (!customerId) {
       return NextResponse.json(
@@ -70,6 +72,7 @@ export async function POST(request: Request) {
       data: {
         id: tenantId,
         customerId,
+        description: description || null,
         createdAt: now,
         modifiedAt: now,
         connectionId: connectionId || null,

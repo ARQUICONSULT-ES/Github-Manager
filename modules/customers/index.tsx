@@ -72,6 +72,7 @@ export function TenantsPage() {
       setSelectedTenant({ 
         id: "",
         customerId,
+        description: "",
         connectionId: "",
         grantType: "",
         clientId: "",
@@ -366,7 +367,7 @@ export function TenantsPage() {
             Actualizar
           </button>
 
-          {viewMode === "customers" && (
+          {(viewMode === "customers" || viewMode === "grouped") && (
             <button
               onClick={handleCreateCustomer}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-green-600 hover:bg-green-500 rounded-lg transition-colors whitespace-nowrap"

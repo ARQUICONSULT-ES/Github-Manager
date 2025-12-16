@@ -12,6 +12,7 @@ export interface Tenant {
   customerId: string;
   customerName?: string; // Computed from Customer relation
   customer?: Customer; // Relation to Customer
+  description?: string | null;
   createdAt: string | Date;
   modifiedAt: string | Date;
   // Campos de conexión
