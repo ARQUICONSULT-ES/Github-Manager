@@ -13,6 +13,7 @@ export async function GET() {
         customer: {
           select: {
             customerName: true,
+            imageBase64: true,
           },
         },
       },
@@ -21,11 +22,12 @@ export async function GET() {
       },
     });
 
-    // Transformar para incluir customerName en el nivel superior
+    // Transformar para incluir customerName y customerImage en el nivel superior
     const tenantsWithCustomerName = tenants.map(tenant => ({
       id: tenant.id,
       customerId: tenant.customerId,
       customerName: tenant.customer.customerName,
+      customerImage: tenant.customer.imageBase64,
       description: tenant.description,
       createdAt: tenant.createdAt,
       modifiedAt: tenant.modifiedAt,

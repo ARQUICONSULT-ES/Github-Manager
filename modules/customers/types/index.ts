@@ -12,6 +12,7 @@ export interface Tenant {
   id: string;
   customerId: string;
   customerName?: string; // Computed from Customer relation
+  customerImage?: string | null; // Customer image Base64
   customer?: Customer; // Relation to Customer
   description?: string | null;
   createdAt: string | Date;
@@ -36,6 +37,12 @@ export interface Environment {
   webClientUrl?: string | null;
   locationName?: string | null;
   platformVersion?: string | null;
+}
+
+export interface EnvironmentWithCustomer extends Environment {
+  customerId: string;
+  customerName: string;
+  customerImage?: string | null;
 }
 
 // Respuesta de la API de Business Central

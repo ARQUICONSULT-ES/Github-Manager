@@ -4,15 +4,19 @@ import { useRef, useState } from "react";
 import { TenantList } from "./components/TenantList";
 import { TenantCard } from "./components/TenantCard";
 import { CustomerList } from "./components/CustomerList";
+import EnvironmentList from "./components/EnvironmentList";
 import TenantFormModal from "./components/TenantFormModal";
 import CustomerFormModal from "./components/CustomerFormModal";
 import type { TenantListHandle, Tenant, Customer, CustomerListHandle } from "./types";
+import type { EnvironmentListRef } from "./components/EnvironmentList";
 import { useTenants } from "./hooks/useTenants";
 import { useCustomers } from "./hooks/useCustomers";
+import { useAllEnvironments } from "./hooks/useAllEnvironments";
 import { useTenantFilter } from "./hooks/useTenantFilter";
 import { useCustomerFilter } from "./hooks/useCustomerFilter";
+import { useEnvironmentFilter } from "./hooks/useEnvironmentFilter";
 
-type ViewMode = "grouped" | "customers" | "tenants";
+type ViewMode = "grouped" | "customers" | "tenants" | "environments";
 
 function SkeletonCard() {
   return (
@@ -53,8 +57,21 @@ export function TenantsPage() {
     sortBy: customerSortBy,
     setSortBy: setCustomerSortBy,
   } = useCustomerFilter(customers);
+  
+  const { environments, loading: environmentsLoading, error: environmentsError, reload: reloadEnvironments } = useAllEnvironments();
+  const {
+    filteredEnvironments,
+    searchQuery: environmentSearchQuery,
+    setSearchQuery: setEnvironmentSearchQuery,
+    sortBy: environmentSortBy,
+    setSortBy: setEnvironmentSortBy,
+    showDeleted,
+    setShowDeleted,
+  } = useEnvironmentFilter(environments);
+  
   const tenantListRef = useRef<TenantListHandle>(null);
   const customerListRef = useRef<CustomerListHandle>(null);
+  const environmentListRef = useRef<EnvironmentListRef>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | undefined>(undefined);
@@ -62,17 +79,20 @@ export function TenantsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("grouped");
   const [expandedCustomers, setExpandedCustomers] = useState<Set<string>>(new Set());
 
-  const isLoading = tenantsLoading || customersLoading;
-  const error = tenantsError || customersError;
+  const isLoading = tenantsLoading || customersLoading || environmentsLoading;
+  const error = tenantsError || customersError || environmentsError;
 
   const handleRefresh = async () => {
     if (viewMode === "tenants" && tenantListRef.current) {
       await tenantListRef.current.refreshTenants();
     } else if (viewMode === "customers" && customerListRef.current) {
       await customerListRef.current.refreshCustomers();
+    } else if (viewMode === "environments") {
+      await reloadEnvironments();
     }
     await fetchTenants();
     await refreshCustomers();
+    await reloadEnvironments();
   };
 
   const handleCreateTenant = (customerId?: string) => {
@@ -163,7 +183,8 @@ export function TenantsPage() {
   };
 
   const isRefreshing = (viewMode === "tenants" && tenantListRef.current?.isRefreshing) || 
-                       (viewMode === "customers" && customerListRef.current?.isRefreshing) || 
+                       (viewMode === "customers" && customerListRef.current?.isRefreshing) ||
+                       (viewMode === "environments" && environmentListRef.current?.isRefreshing) ||
                        false;
 
   if (isLoading) {
@@ -232,7 +253,7 @@ export function TenantsPage() {
             Clientes y Tenants
           </h1>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            {customers.length} clientes • {tenants.length} tenants
+            {customers.length} clientes • {tenants.length} tenants • {environments.length} entornos
           </p>
         </div>
         
@@ -268,12 +289,22 @@ export function TenantsPage() {
           >
             Tenants
           </button>
+          <button
+            onClick={() => setViewMode("environments")}
+            className={`px-4 py-2 text-sm font-medium border-l border-gray-300 dark:border-gray-700 transition-colors ${
+              viewMode === "environments"
+                ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+            }`}
+          >
+            Entornos
+          </button>
         </div>
       </div>
 
       {/* Barra de herramientas */}
       <div className="flex flex-col sm:flex-row gap-3">
-        {(viewMode === "tenants" || viewMode === "customers") && (
+        {(viewMode === "tenants" || viewMode === "customers" || viewMode === "environments") && (
           <div className="relative flex-1">
             <svg
               className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
@@ -290,9 +321,21 @@ export function TenantsPage() {
             </svg>
             <input
               type="text"
-              value={viewMode === "customers" ? customerSearchQuery : tenantSearchQuery}
-              onChange={(e) => viewMode === "customers" ? setCustomerSearchQuery(e.target.value) : setTenantSearchQuery(e.target.value)}
-              placeholder={viewMode === "customers" ? "Buscar customers..." : "Buscar tenants..."}
+              value={
+                viewMode === "customers" ? customerSearchQuery :
+                viewMode === "environments" ? environmentSearchQuery :
+                tenantSearchQuery
+              }
+              onChange={(e) => {
+                if (viewMode === "customers") setCustomerSearchQuery(e.target.value);
+                else if (viewMode === "environments") setEnvironmentSearchQuery(e.target.value);
+                else setTenantSearchQuery(e.target.value);
+              }}
+              placeholder={
+                viewMode === "customers" ? "Buscar customers..." :
+                viewMode === "environments" ? "Buscar entornos..." :
+                "Buscar tenants..."
+              }
               className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 bg-white text-sm placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:placeholder-gray-400"
             />
           </div>
@@ -367,6 +410,60 @@ export function TenantsPage() {
                 </button>
               </div>
             </div>
+          )}
+
+          {viewMode === "environments" && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                Ordenar:
+              </span>
+              <div className="inline-flex rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden">
+                <button
+                  onClick={() => setEnvironmentSortBy("customer")}
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    environmentSortBy === "customer"
+                      ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                      : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+                  }`}
+                >
+                  Cliente
+                </button>
+                <button
+                  onClick={() => setEnvironmentSortBy("name")}
+                  className={`px-3 py-2 text-sm font-medium border-l border-gray-300 dark:border-gray-700 transition-colors ${
+                    environmentSortBy === "name"
+                      ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                      : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+                  }`}
+                >
+                  Nombre
+                </button>
+                <button
+                  onClick={() => setEnvironmentSortBy("type")}
+                  className={`px-3 py-2 text-sm font-medium border-l border-gray-300 dark:border-gray-700 transition-colors ${
+                    environmentSortBy === "type"
+                      ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                      : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+                  }`}
+                >
+                  Tipo
+                </button>
+              </div>
+            </div>
+          )}
+
+          {viewMode === "environments" && (
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={showDeleted}
+                onChange={(e) => setShowDeleted(e.target.checked)}
+                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">
+                Mostrar eliminados
+              </span>
+            </label>
           )}
 
           {viewMode === "grouped" && (
@@ -572,6 +669,23 @@ export function TenantsPage() {
               </svg>
               <p className="text-gray-600 dark:text-gray-400">
                 {tenantSearchQuery ? `No se encontraron tenants con "${tenantSearchQuery}"` : "No hay tenants"}
+              </p>
+            </div>
+          )}
+        </>
+      )}
+
+      {viewMode === "environments" && (
+        <>
+          {filteredEnvironments.length > 0 ? (
+            <EnvironmentList ref={environmentListRef} environments={filteredEnvironments} />
+          ) : (
+            <div className="text-center py-12 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg">
+              <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              <p className="text-gray-600 dark:text-gray-400">
+                {environmentSearchQuery ? `No se encontraron entornos con "${environmentSearchQuery}"` : "No hay entornos"}
               </p>
             </div>
           )}

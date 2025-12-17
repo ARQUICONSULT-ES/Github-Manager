@@ -1,6 +1,25 @@
-import type { Environment } from "../types";
+import type { Environment, EnvironmentWithCustomer } from "../types";
 
 const API_BASE = "/api/customers";
+
+/**
+ * Obtiene todos los environments de la base de datos
+ */
+export async function fetchAllEnvironments(): Promise<EnvironmentWithCustomer[]> {
+  try {
+    const response = await fetch("/api/environments");
+    
+    if (!response.ok) {
+      throw new Error('Error al cargar environments');
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error fetching all environments:", error);
+    throw error;
+  }
+}
 
 /**
  * Obtiene todos los environments de un tenant desde Business Central
