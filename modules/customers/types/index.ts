@@ -45,6 +45,7 @@ export interface EnvironmentWithCustomer extends Environment {
   customerId: string;
   customerName: string;
   customerImage?: string | null;
+  tenantDescription?: string | null;
   appsCount?: number;
 }
 

@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
       customerId: env.tenant.customer.id,
       customerName: env.tenant.customer.customerName,
       customerImage: env.tenant.customer.imageBase64,
+      tenantDescription: env.tenant.description,
       appsCount: env.extensions.length,
     }));
 

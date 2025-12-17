@@ -199,7 +199,7 @@ export function TenantsPage() {
             Administración de clientes
           </h1>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            {customers.length} clientes • {tenants.length} tenants • {environments.length} entornos • {applications.length} aplicaciones
+            {customers.length} clientes • {tenants.length} tenants • {environments.filter(env => env.status?.toLowerCase() !== 'softdeleted').length} entornos activos
           </p>
         </div>
         

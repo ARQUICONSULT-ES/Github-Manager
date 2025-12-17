@@ -19,52 +19,31 @@ export function ApplicationCard({ application }: ApplicationCardProps) {
     return "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300";
   };
 
-  // Círculo de estado de la aplicación
-  const getStateDotColor = (state?: string | null) => {
-    if (!state) return "bg-gray-400";
-    
-    const stateLower = state.toLowerCase();
-    if (stateLower === "installed") {
-      return "bg-green-500";
-    }
-    if (stateLower === "updating") {
-      return "bg-yellow-500";
-    }
-    if (stateLower === "uninstalling") {
-      return "bg-red-500";
-    }
-    return "bg-gray-400";
-  };
-
   return (
-    <div className="group relative inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-400 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md isolate">
-      {/* Círculo de estado */}
-      {application.state && (
-        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${getStateDotColor(application.state)}`} />
-      )}
-      
+    <div className="group relative inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-blue-400 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md isolate">
       {/* Información básica */}
       <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-        {/* Nombre de la aplicación y tipo */}
+        {/* Nombre de la aplicación */}
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
             {application.name}
           </span>
-          {/* Badge de tipo */}
-          <span className={`text-[10px] px-2 py-1 rounded font-medium flex-shrink-0 ${getTypeBadgeColor(application.publishedAs)}`}>
-            {application.publishedAs}
-          </span>
         </div>
         
         {/* Publisher y Version */}
-        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 min-w-0">
+        <div className="flex items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400 min-w-0">
           <span className="truncate flex-1" title={application.publisher}>{application.publisher}</span>
-          <span className="font-mono flex-shrink-0">{application.version}</span>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className={`text-[10px] px-2 py-1 rounded font-medium ${getTypeBadgeColor(application.publishedAs)}`}>
+              {application.publishedAs}
+            </span>
+            <span className="font-mono">{application.version}</span>
+          </div>
         </div>
       </div>
       
       {/* Tooltip con información detallada */}
-      <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-80 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-2xl pointer-events-none" style={{ zIndex: 9999 }}>
+      <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-80 p-4 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-2xl pointer-events-none" style={{ zIndex: 9999 }}>
         <div className="space-y-2 text-xs">
           {/* Nombre */}
           <div className="font-semibold text-base text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
@@ -90,19 +69,6 @@ export function ApplicationCard({ application }: ApplicationCardProps) {
               {application.publishedAs}
             </span>
           </div>
-          
-          {/* Estado */}
-          {application.state && (
-            <div className="flex justify-between items-center">
-              <span className="text-gray-500 dark:text-gray-400">Estado:</span>
-              <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${getStateDotColor(application.state)}`} />
-                <span className="text-gray-900 dark:text-white font-medium capitalize">
-                  {application.state}
-                </span>
-              </div>
-            </div>
-          )}
           
           {/* Separador */}
           <div className="border-t border-gray-200 dark:border-gray-700 my-2"></div>
