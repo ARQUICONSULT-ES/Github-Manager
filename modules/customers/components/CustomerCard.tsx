@@ -47,15 +47,36 @@ export function CustomerCard({ customer, onEdit }: CustomerCardProps) {
           >
             {customer.customerName}
           </button>
-          <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
+          
+          {/* Contadores con estilo del EnvironmentCard */}
+          <div className="mt-2 grid grid-cols-2 gap-3">
+            {/* Tenants Count */}
             {customer.tenantsCount !== undefined && (
-              <div>
-                {customer.tenantsCount} tenant{customer.tenantsCount !== 1 ? 's' : ''}
+              <div className="flex items-center gap-2 text-xs">
+                <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                <div className="min-w-0">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Tenants</p>
+                  <span className="text-xs font-medium text-gray-900 dark:text-white">
+                    {customer.tenantsCount}
+                  </span>
+                </div>
               </div>
             )}
+
+            {/* Environments Count */}
             {customer.activeEnvironmentsCount !== undefined && (
-              <div>
-                {customer.activeEnvironmentsCount} entorno{customer.activeEnvironmentsCount !== 1 ? 's' : ''}
+              <div className="flex items-center gap-2 text-xs">
+                <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <div className="min-w-0">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Entornos</p>
+                  <span className="text-xs font-medium text-gray-900 dark:text-white">
+                    {customer.activeEnvironmentsCount}
+                  </span>
+                </div>
               </div>
             )}
           </div>
