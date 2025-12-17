@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { TenantCard } from "./components/TenantCard";
 import { CustomerList } from "./components/CustomerList";
 import EnvironmentList from "./components/EnvironmentList";
 import { ApplicationsList } from "./components/ApplicationsList";
@@ -17,29 +16,7 @@ import { useCustomerFilter } from "./hooks/useCustomerFilter";
 import { useEnvironmentFilter } from "./hooks/useEnvironmentFilter";
 import { syncAllApplications } from "./services/applicationService";
 
-type ViewMode = "grouped" | "customers" | "environments" | "applications";
-
-function SkeletonCard() {
-  return (
-    <div className="bg-gray-900 border border-gray-700 rounded-lg p-4 flex flex-col gap-3 animate-pulse">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1">
-          <div className="h-4 bg-gray-700 rounded w-3/4 mb-2"></div>
-          <div className="h-3 bg-gray-700 rounded w-1/2"></div>
-        </div>
-        <div className="w-5 h-5 bg-gray-700 rounded-full"></div>
-      </div>
-      <div className="h-5 bg-gray-700 rounded w-20"></div>
-      <div className="flex items-center gap-4">
-        <div className="h-4 bg-gray-700 rounded w-24"></div>
-        <div className="h-4 bg-gray-700 rounded w-28"></div>
-      </div>
-      <div className="mt-auto pt-2 border-t border-gray-700">
-        <div className="h-3 bg-gray-700 rounded w-32"></div>
-      </div>
-    </div>
-  );
-}
+type ViewMode = "customers" | "environments" | "applications";
 
 export function TenantsPage() {
   const { tenants, isLoading: tenantsLoading, error: tenantsError, fetchTenants } = useTenants();
@@ -66,6 +43,7 @@ export function TenantsPage() {
   const { applications, loading: applicationsLoading, isRefreshing: applicationsRefreshing, error: applicationsError, reload: reloadApplications } = useAllApplications();
   const [applicationsSearchQuery, setApplicationsSearchQuery] = useState("");
   const [filterEnvironmentType, setFilterEnvironmentType] = useState<"all" | "Production" | "Sandbox">("all");
+  const [hideMicrosoftApps, setHideMicrosoftApps] = useState(true);
   const [isSyncingApps, setIsSyncingApps] = useState(false);
   
   const customerListRef = useRef<CustomerListHandle>(null);
@@ -74,8 +52,7 @@ export function TenantsPage() {
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | undefined>(undefined);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | undefined>(undefined);
-  const [viewMode, setViewMode] = useState<ViewMode>("grouped");
-  const [expandedCustomers, setExpandedCustomers] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<ViewMode>("customers");
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [syncResult, setSyncResult] = useState<{
     success: number;
@@ -227,52 +204,7 @@ export function TenantsPage() {
     await refreshCustomers();
   };
 
-  const toggleCustomer = (customerId: string) => {
-    setExpandedCustomers(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(customerId)) {
-        newSet.delete(customerId);
-      } else {
-        newSet.add(customerId);
-      }
-      return newSet;
-    });
-  };
-
-  const expandAll = () => {
-    setExpandedCustomers(new Set(customers.map((c: Customer) => c.id)));
-  };
-
-  const collapseAll = () => {
-    setExpandedCustomers(new Set());
-  };
-
   const isRefreshing = customersRefreshing || environmentsRefreshing || applicationsRefreshing;
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        {/* Header skeleton */}
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-700 rounded w-48 mb-2"></div>
-          <div className="h-4 bg-gray-700 rounded w-32"></div>
-        </div>
-
-        {/* Search and sort skeleton */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 h-10 bg-gray-700 rounded-lg animate-pulse"></div>
-          <div className="h-10 bg-gray-700 rounded-lg w-64 animate-pulse"></div>
-        </div>
-
-        {/* Grid skeleton */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   if (error) {
     return (
@@ -322,18 +254,8 @@ export function TenantsPage() {
         {/* Selector de vista */}
         <div className="inline-flex rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden">
           <button
-            onClick={() => setViewMode("grouped")}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              viewMode === "grouped"
-                ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-                : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-            }`}
-          >
-            Vista agrupada
-          </button>
-          <button
             onClick={() => setViewMode("customers")}
-            className={`px-4 py-2 text-sm font-medium border-l border-gray-300 dark:border-gray-700 transition-colors ${
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
               viewMode === "customers"
                 ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
                 : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
@@ -405,15 +327,29 @@ export function TenantsPage() {
 
         {/* Filtros para aplicaciones */}
         {viewMode === "applications" && (
-          <select
-            value={filterEnvironmentType}
-            onChange={(e) => setFilterEnvironmentType(e.target.value as any)}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="all">Todos los tipos de entorno</option>
-            <option value="Production">Production</option>
-            <option value="Sandbox">Sandbox</option>
-          </select>
+          <>
+            <select
+              value={filterEnvironmentType}
+              onChange={(e) => setFilterEnvironmentType(e.target.value as any)}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="all">Todos los tipos de entorno</option>
+              <option value="Production">Production</option>
+              <option value="Sandbox">Sandbox</option>
+            </select>
+
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={hideMicrosoftApps}
+                onChange={(e) => setHideMicrosoftApps(e.target.checked)}
+                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">
+                Ocultar apps Microsoft
+              </span>
+            </label>
+          </>
         )}
 
         <div className="flex items-center gap-3 ml-auto">
@@ -501,23 +437,6 @@ export function TenantsPage() {
             </label>
           )}
 
-          {viewMode === "grouped" && (
-            <>
-              <button
-                onClick={expandAll}
-                className="px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                Expandir todo
-              </button>
-              <button
-                onClick={collapseAll}
-                className="px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                Contraer todo
-              </button>
-            </>
-          )}
-
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
@@ -562,7 +481,7 @@ export function TenantsPage() {
             <button
               onClick={handleSyncApplications}
               disabled={isSyncingApps}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-wait rounded-lg transition-colors whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-500 disabled:bg-purple-800 disabled:cursor-wait rounded-lg transition-colors whitespace-nowrap"
               title="Sincronizar todas las aplicaciones desde Business Central"
             >
               {isSyncingApps ? (
@@ -572,14 +491,14 @@ export function TenantsPage() {
                 </svg>
               ) : (
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                 </svg>
               )}
-              Sincronizar Aplicaciones
+              Sincronizar Todos
             </button>
           )}
 
-          {(viewMode === "customers" || viewMode === "grouped") && (
+          {viewMode === "customers" && (
             <button
               onClick={handleCreateCustomer}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-green-600 hover:bg-green-500 rounded-lg transition-colors whitespace-nowrap"
@@ -610,101 +529,6 @@ export function TenantsPage() {
       />
 
       {/* Contenido según vista seleccionada */}
-      {viewMode === "grouped" && (
-        <div className="space-y-4">
-          {customers.map((customer: Customer) => {
-            const customerTenants = tenants.filter((t) => t.customerId === customer.id);
-            const isExpanded = expandedCustomers.has(customer.id);
-            
-            return (
-              <div key={customer.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                {/* Customer Header */}
-                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center gap-3 flex-1">
-                    <button
-                      onClick={() => toggleCustomer(customer.id)}
-                      className="p-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      <svg
-                        className={`w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform ${
-                          isExpanded ? "rotate-90" : ""
-                        }`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 dark:text-white">
-                        {customer.customerName}
-                      </h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        {customerTenants.length} {customerTenants.length === 1 ? "tenant" : "tenants"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleCreateTenant(customer.id)}
-                      className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-500 rounded-md transition-colors"
-                      title="Añadir tenant a este cliente"
-                    >
-                      + Tenant
-                    </button>
-                    <button
-                      onClick={() => handleEditCustomer(customer)}
-                      className="p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
-                      title="Editar cliente"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Customer Tenants */}
-                {isExpanded && (
-                  <div className="p-4">
-                    {customerTenants.length > 0 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {customerTenants.map((tenant) => (
-                          <TenantCard 
-                            key={tenant.id} 
-                            tenant={tenant} 
-                            onEdit={handleEditTenant}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
-                        <p>No hay tenants para este cliente</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {customers.length === 0 && (
-            <div className="text-center py-12 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg">
-              <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">No hay clientes</p>
-              <button
-                onClick={handleCreateCustomer}
-                className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-500 rounded-lg transition-colors"
-              >
-                Crear primer cliente
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
       {viewMode === "customers" && (
         <>
           {filteredCustomers.length > 0 ? (
@@ -755,7 +579,11 @@ export function TenantsPage() {
               const matchesEnvironmentType = filterEnvironmentType === "all" || 
                 app.environmentType === filterEnvironmentType;
               
-              return matchesSearch && matchesEnvironmentType;
+              // Filtro para ocultar apps de Microsoft
+              const matchesMicrosoftFilter = !hideMicrosoftApps || 
+                app.publisher.toLowerCase() !== "microsoft";
+              
+              return matchesSearch && matchesEnvironmentType && matchesMicrosoftFilter;
             });
 
             return filteredApps.length > 0 ? (

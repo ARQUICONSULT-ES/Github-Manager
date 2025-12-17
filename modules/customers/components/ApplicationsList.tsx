@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { ApplicationWithEnvironment } from "../types";
 import { ApplicationCard } from "./ApplicationCard";
 
@@ -12,6 +13,38 @@ export function ApplicationsList({
   applications, 
   isLoading = false,
 }: ApplicationsListProps) {
+  // Agrupar aplicaciones por cliente para obtener todos los customerIds
+  const groupedByCustomer = applications.reduce((acc, app) => {
+    if (!acc[app.customerName]) {
+      acc[app.customerName] = {
+        customerId: app.customerId,
+        customerImage: app.customerImage,
+        applications: [],
+      };
+    }
+    acc[app.customerName].applications.push(app);
+    return acc;
+  }, {} as Record<string, { 
+    customerId: string; 
+    customerImage?: string | null; 
+    applications: ApplicationWithEnvironment[] 
+  }>);
+
+  // Inicializar todos los clientes como expandidos
+  const allCustomerIds = Object.values(groupedByCustomer).map(data => data.customerId);
+  const [expandedCustomers, setExpandedCustomers] = useState<Set<string>>(new Set(allCustomerIds));
+  
+  const toggleCustomer = (customerId: string) => {
+    setExpandedCustomers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(customerId)) {
+        newSet.delete(customerId);
+      } else {
+        newSet.add(customerId);
+      }
+      return newSet;
+    });
+  };
   if (isLoading) {
     return (
       <div className="grid gap-3">
@@ -42,90 +75,103 @@ export function ApplicationsList({
     );
   }
 
-  // Agrupar aplicaciones por cliente
-  const groupedByCustomer = applications.reduce((acc, app) => {
-    if (!acc[app.customerName]) {
-      acc[app.customerName] = {
-        customerId: app.customerId,
-        customerImage: app.customerImage,
-        applications: [],
-      };
-    }
-    acc[app.customerName].applications.push(app);
-    return acc;
-  }, {} as Record<string, { 
-    customerId: string; 
-    customerImage?: string | null; 
-    applications: ApplicationWithEnvironment[] 
-  }>);
-
   return (
     <div className="space-y-6">
-      {Object.entries(groupedByCustomer).map(([customerName, data]) => (
-        <div key={data.customerId} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-          {/* Header del cliente */}
-          <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-3">
-              {data.customerImage ? (
-                <img 
-                  src={data.customerImage} 
-                  alt={customerName}
-                  className="w-8 h-8 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-sm">
-                  {customerName.charAt(0).toUpperCase()}
+      {Object.entries(groupedByCustomer).map(([customerName, data]) => {
+        const isExpanded = expandedCustomers.has(data.customerId);
+        
+        return (
+          <div key={data.customerId} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+            {/* Header del cliente */}
+            <button
+              onClick={() => toggleCustomer(data.customerId)}
+              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                {/* Icono de expandir/colapsar */}
+                <svg
+                  className={`w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform flex-shrink-0 ${
+                    isExpanded ? "rotate-90" : ""
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                
+                {data.customerImage ? (
+                  <img 
+                    src={data.customerImage} 
+                    alt={customerName}
+                    className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+                    {customerName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="text-left">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {customerName}
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {data.applications.length} aplicación{data.applications.length !== 1 ? 'es' : ''}
+                  </p>
                 </div>
-              )}
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                  {customerName}
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {data.applications.length} aplicación{data.applications.length !== 1 ? 'es' : ''}
-                </p>
               </div>
-            </div>
-          </div>
-          
-          {/* Lista de aplicaciones agrupadas por entorno */}
-          <div className="p-4">
-            {(() => {
-              // Agrupar las aplicaciones de este cliente por entorno
-              const byEnvironment = data.applications.reduce((acc, app) => {
-                const envKey = `${app.environmentName}`;
-                if (!acc[envKey]) {
-                  acc[envKey] = {
-                    environmentName: app.environmentName,
-                    environmentType: app.environmentType,
-                    environmentStatus: app.environmentStatus,
-                    applications: [],
-                  };
-                }
-                acc[envKey].applications.push(app);
-                return acc;
-              }, {} as Record<string, { 
-                environmentName: string;
-                environmentType?: string | null;
-                environmentStatus?: string | null;
-                applications: ApplicationWithEnvironment[] 
-              }>);
+            </button>
+            
+            {/* Lista de aplicaciones agrupadas por entorno */}
+            {isExpanded && (
+              <div className="p-4">
+                {(() => {
+                  // Agrupar las aplicaciones de este cliente por entorno
+                  const byEnvironment = data.applications.reduce((acc, app) => {
+                    const envKey = `${app.environmentName}`;
+                    if (!acc[envKey]) {
+                      acc[envKey] = {
+                        environmentName: app.environmentName,
+                        environmentType: app.environmentType,
+                        environmentStatus: app.environmentStatus,
+                        applications: [],
+                      };
+                    }
+                    acc[envKey].applications.push(app);
+                    return acc;
+                  }, {} as Record<string, { 
+                    environmentName: string;
+                    environmentType?: string | null;
+                    environmentStatus?: string | null;
+                    applications: ApplicationWithEnvironment[] 
+                  }>);
 
-              return (
-                <div className="space-y-4">
-                  {Object.entries(byEnvironment).map(([envKey, envData]) => (
-                    <div key={envKey}>
-                      {/* Header del entorno */}
-                      <div className="mb-2 flex items-center gap-2">
-                        <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                          {envData.environmentName}
-                        </h4>
-                        {envData.environmentType && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
-                            {envData.environmentType}
-                          </span>
-                        )}
-                        <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                  // Función para obtener el color de la etiqueta de tipo
+                  const getTypeColor = (type?: string | null) => {
+                    const typeStr = type?.toLowerCase();
+                    if (typeStr === 'production') {
+                      return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+                    } else if (typeStr === 'sandbox') {
+                      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
+                    }
+                    return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400';
+                  };
+
+                  return (
+                    <div className="space-y-4">
+                      {Object.entries(byEnvironment).map(([envKey, envData]) => (
+                        <div key={envKey}>
+                          {/* Header del entorno */}
+                          <div className="mb-2 flex items-center gap-2">
+                            <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                              {envData.environmentName}
+                            </h4>
+                            {envData.environmentType && (
+                              <span className={`px-2 py-0.5 text-xs font-medium rounded ${getTypeColor(envData.environmentType)}`}>
+                                {envData.environmentType}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400">
                           ({envData.applications.length} app{envData.applications.length !== 1 ? 's' : ''})
                         </span>
                       </div>
@@ -145,8 +191,10 @@ export function ApplicationsList({
               );
             })()}
           </div>
-        </div>
-      ))}
+        )}
+      </div>
+    );
+  })}
     </div>
   );
 }
