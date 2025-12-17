@@ -40,7 +40,7 @@ function SkeletonCard() {
 
 export function TenantsPage() {
   const { tenants, isLoading: tenantsLoading, error: tenantsError, fetchTenants } = useTenants();
-  const { customers, isLoading: customersLoading, error: customersError, refreshCustomers } = useCustomers();
+  const { customers, isLoading: customersLoading, isRefreshing: customersRefreshing, error: customersError, refreshCustomers } = useCustomers();
   const {
     filteredCustomers,
     searchQuery: customerSearchQuery,
@@ -49,7 +49,7 @@ export function TenantsPage() {
     setSortBy: setCustomerSortBy,
   } = useCustomerFilter(customers);
   
-  const { environments, loading: environmentsLoading, error: environmentsError, reload: reloadEnvironments } = useAllEnvironments();
+  const { environments, loading: environmentsLoading, isRefreshing: environmentsRefreshing, error: environmentsError, reload: reloadEnvironments } = useAllEnvironments();
   const {
     filteredEnvironments,
     searchQuery: environmentSearchQuery,
@@ -80,14 +80,21 @@ export function TenantsPage() {
   const error = tenantsError || customersError || environmentsError;
 
   const handleRefresh = async () => {
-    if (viewMode === "customers" && customerListRef.current) {
-      await customerListRef.current.refreshCustomers();
+    // Refrescar según la vista activa
+    if (viewMode === "customers") {
+      // Solo refrescar customers
+      await refreshCustomers();
     } else if (viewMode === "environments") {
+      // Solo refrescar environments
       await reloadEnvironments();
+    } else {
+      // Vista agrupada: refrescar todo
+      await Promise.all([
+        fetchTenants(),
+        refreshCustomers(),
+        reloadEnvironments(),
+      ]);
     }
-    await fetchTenants();
-    await refreshCustomers();
-    await reloadEnvironments();
   };
 
   const handleSyncAll = async () => {
@@ -205,9 +212,7 @@ export function TenantsPage() {
     setExpandedCustomers(new Set());
   };
 
-  const isRefreshing = (viewMode === "customers" && customerListRef.current?.isRefreshing) ||
-                       (viewMode === "environments" && environmentListRef.current?.isRefreshing) ||
-                       false;
+  const isRefreshing = customersRefreshing || environmentsRefreshing;
 
   if (isLoading) {
     return (
