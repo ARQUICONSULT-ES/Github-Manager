@@ -1,4 +1,5 @@
 import type { Customer } from "../types";
+import { dataCache, CACHE_KEYS } from "../../shared/utils/cache";
 
 const API_BASE = "/api/customers";
 
@@ -61,6 +62,10 @@ export async function createCustomer(customerName: string): Promise<Customer> {
     }
     
     const data = await response.json();
+    
+    // Invalidar cache después de crear
+    dataCache.invalidate(CACHE_KEYS.CUSTOMERS);
+    
     return data;
   } catch (error) {
     console.error("Error creating customer:", error);
@@ -89,6 +94,10 @@ export async function updateCustomer(
     }
     
     const data = await response.json();
+    
+    // Invalidar cache después de actualizar
+    dataCache.invalidate(CACHE_KEYS.CUSTOMERS);
+    
     return data;
   } catch (error) {
     console.error("Error updating customer:", error);

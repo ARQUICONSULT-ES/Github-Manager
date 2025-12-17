@@ -1,4 +1,5 @@
 import type { Environment, EnvironmentWithCustomer } from "../types";
+import { dataCache, CACHE_KEYS } from "../../shared/utils/cache";
 
 const API_BASE = "/api/customers";
 
@@ -85,6 +86,11 @@ export async function syncAllEnvironments(): Promise<{
     }
     
     const data = await response.json();
+    
+    // Invalidar cache después de sincronizar
+    dataCache.invalidate(CACHE_KEYS.ENVIRONMENTS);
+    dataCache.invalidate(CACHE_KEYS.TENANTS);
+    
     return data;
   } catch (error) {
     console.error("Error syncing all environments:", error);

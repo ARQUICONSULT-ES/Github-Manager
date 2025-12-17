@@ -1,4 +1,5 @@
 import type { ApplicationWithEnvironment } from "../types";
+import { dataCache, CACHE_KEYS } from "../../shared/utils/cache";
 
 /**
  * Obtiene todas las aplicaciones de todos los entornos desde la base de datos
@@ -45,6 +46,10 @@ export async function syncAllApplications(): Promise<{
     }
     
     const data = await response.json();
+    
+    // Invalidar cache después de sincronizar
+    dataCache.invalidate(CACHE_KEYS.APPLICATIONS);
+    
     return data;
   } catch (error) {
     console.error("Error syncing all applications:", error);

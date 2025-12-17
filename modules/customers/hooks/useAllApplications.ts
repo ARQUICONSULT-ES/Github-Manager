@@ -1,10 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { fetchAllApplications } from '../services/applicationService';
 import type { ApplicationWithEnvironment } from '../types';
+import { dataCache, CACHE_KEYS } from '../../shared/utils/cache';
 
 export function useAllApplications() {
-  const [applications, setApplications] = useState<ApplicationWithEnvironment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [applications, setApplications] = useState<ApplicationWithEnvironment[]>(() => {
+    // Intentar cargar desde cache al inicializar
+    return dataCache.get<ApplicationWithEnvironment[]>(CACHE_KEYS.APPLICATIONS) || [];
+  });
+  const [loading, setLoading] = useState(() => {
+    // Si hay datos en cache, no mostrar loading
+    return !dataCache.has(CACHE_KEYS.APPLICATIONS);
+  });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,6 +25,8 @@ export function useAllApplications() {
       setError(null);
       const data = await fetchAllApplications();
       setApplications(data);
+      // Guardar en cache
+      dataCache.set(CACHE_KEYS.APPLICATIONS, data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar aplicaciones');
       console.error('Error loading applications:', err);
@@ -32,7 +41,10 @@ export function useAllApplications() {
   }, [loadApplications]);
 
   useEffect(() => {
-    loadApplications();
+    // Solo cargar si no hay datos en cache
+    if (!dataCache.has(CACHE_KEYS.APPLICATIONS)) {
+      loadApplications();
+    }
   }, [loadApplications]);
 
   return {

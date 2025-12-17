@@ -1,10 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { fetchAllEnvironments } from '../services/environmentService';
 import type { EnvironmentWithCustomer } from '../types';
+import { dataCache, CACHE_KEYS } from '../../shared/utils/cache';
 
 export function useAllEnvironments() {
-  const [environments, setEnvironments] = useState<EnvironmentWithCustomer[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [environments, setEnvironments] = useState<EnvironmentWithCustomer[]>(() => {
+    // Intentar cargar desde cache al inicializar
+    return dataCache.get<EnvironmentWithCustomer[]>(CACHE_KEYS.ENVIRONMENTS) || [];
+  });
+  const [loading, setLoading] = useState(() => {
+    // Si hay datos en cache, no mostrar loading
+    return !dataCache.has(CACHE_KEYS.ENVIRONMENTS);
+  });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,6 +25,8 @@ export function useAllEnvironments() {
       setError(null);
       const data = await fetchAllEnvironments();
       setEnvironments(data);
+      // Guardar en cache
+      dataCache.set(CACHE_KEYS.ENVIRONMENTS, data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar environments');
       console.error('Error loading environments:', err);
@@ -32,7 +41,10 @@ export function useAllEnvironments() {
   }, [loadEnvironments]);
 
   useEffect(() => {
-    loadEnvironments();
+    // Solo cargar si no hay datos en cache
+    if (!dataCache.has(CACHE_KEYS.ENVIRONMENTS)) {
+      loadEnvironments();
+    }
   }, [loadEnvironments]);
 
   return {

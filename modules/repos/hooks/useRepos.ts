@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { GitHubRepository } from "@/types/github";
+import { dataCache, CACHE_KEYS } from "../../shared/utils/cache";
 
 interface UseReposReturn {
   repos: GitHubRepository[];
@@ -14,8 +15,14 @@ interface UseReposReturn {
  * Hook para gestionar la carga de repositorios desde la API de GitHub
  */
 export function useRepos(): UseReposReturn {
-  const [repos, setRepos] = useState<GitHubRepository[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [repos, setRepos] = useState<GitHubRepository[]>(() => {
+    // Intentar cargar desde cache al inicializar
+    return dataCache.get<GitHubRepository[]>(CACHE_KEYS.REPOS) || [];
+  });
+  const [isLoading, setIsLoading] = useState(() => {
+    // Si hay datos en cache, no mostrar loading
+    return !dataCache.has(CACHE_KEYS.REPOS);
+  });
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
@@ -38,6 +45,8 @@ export function useRepos(): UseReposReturn {
 
       const data = await res.json();
       setRepos(data);
+      // Guardar en cache
+      dataCache.set(CACHE_KEYS.REPOS, data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
@@ -46,7 +55,11 @@ export function useRepos(): UseReposReturn {
   };
 
   useEffect(() => {
-    fetchRepos();
+    // Solo cargar si no hay datos en cache
+    if (!dataCache.has(CACHE_KEYS.REPOS)) {
+      fetchRepos();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {
