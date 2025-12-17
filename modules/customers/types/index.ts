@@ -73,18 +73,6 @@ export interface TenantCardProps {
   onEdit?: (tenant: Tenant) => void;
 }
 
-// ==================== TENANT LIST TYPES ====================
-
-export interface TenantListProps {
-  tenants: Tenant[];
-  onEdit?: (tenant: Tenant) => void;
-}
-
-export interface TenantListHandle {
-  refreshTenants: () => Promise<void>;
-  isRefreshing: boolean;
-}
-
 // ==================== CUSTOMER CARD TYPES ====================
 
 export interface CustomerCardProps {
