@@ -100,17 +100,17 @@ export function ApplicationsList({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
                 
-                {data.customerImage ? (
-                  <img 
-                    src={data.customerImage} 
-                    alt={customerName}
-                    className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
-                    {customerName.charAt(0).toUpperCase()}
-                  </div>
-                )}
+                <div className="flex-shrink-0 w-8 h-8 rounded-md overflow-hidden bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-sm">
+                  {data.customerImage ? (
+                    <img 
+                      src={data.customerImage} 
+                      alt={customerName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span>{customerName.charAt(0).toUpperCase()}</span>
+                  )}
+                </div>
                 <div className="text-left">
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                     {customerName}
