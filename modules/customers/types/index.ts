@@ -69,13 +69,6 @@ export interface BCEnvironmentsResponse {
   value: BCEnvironment[];
 }
 
-// ==================== TENANT CARD TYPES ====================
-
-export interface TenantCardProps {
-  tenant: Tenant;
-  onEdit?: (tenant: Tenant) => void;
-}
-
 // ==================== CUSTOMER CARD TYPES ====================
 
 export interface CustomerCardProps {
