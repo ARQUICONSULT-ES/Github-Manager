@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Github Manager",
-  description: "Your github management tool",
+  title: "CEM - Customer Environment Manager",
+  description: "Gestiona tus clientes de Business Central y repositorios de Github",
 };
 
 export default function RootLayout({
