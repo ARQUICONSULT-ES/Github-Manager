@@ -55,8 +55,8 @@ export default function DashboardLayout({
                 <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg mr-2">
                   <span className="text-sm font-bold text-white">CEM</span>
                 </div>
-                {/* Ocultar texto en pantallas pequeñas y medianas */}
-                <span className="hidden lg:inline">Customer Environment Manager</span>
+                {/* Mostrar en móvil y desktop, ocultar en tablet */}
+                <span className="md:hidden lg:inline">Customer Environment Manager</span>
               </Link>
               
               {/* Navegación desktop */}
