@@ -22,6 +22,7 @@ export default function UserFormModal({
     email: "",
     password: "",
     role: "USER",
+    githubToken: "",
   });
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -46,6 +47,7 @@ export default function UserFormModal({
         email: user.email,
         password: "",
         role: user.role,
+        githubToken: user.githubToken || "",
       });
       setShowPassword(false);
       setShowResetPasswordModal(false);
@@ -58,6 +60,7 @@ export default function UserFormModal({
         email: "",
         password: "",
         role: "USER",
+        githubToken: "",
       });
       setShowPassword(false);
       setShowResetPasswordModal(false);
@@ -79,6 +82,7 @@ export default function UserFormModal({
           name: formData.name,
           email: formData.email,
           role: formData.role,
+          githubToken: formData.githubToken,
         };
 
         await updateUser(user.id, dataToSend);
@@ -217,6 +221,24 @@ export default function UserFormModal({
                 className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 placeholder="usuario@ejemplo.com"
               />
+            </div>
+
+            {/* GitHub Token */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                GitHub Token
+              </label>
+              <input
+                type="text"
+                value={formData.githubToken || ""}
+                onChange={(e) => setFormData({ ...formData, githubToken: e.target.value })}
+                autoComplete="off"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+              />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Token personal de GitHub para acceso a repositorios (opcional)
+              </p>
             </div>
 
             {/* Password (solo en modo creación) */}

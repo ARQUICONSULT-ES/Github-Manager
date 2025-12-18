@@ -126,6 +126,7 @@ exports.Prisma.UserScalarFieldEnum = {
   email: 'email',
   password: 'password',
   role: 'role',
+  githubToken: 'githubToken',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };

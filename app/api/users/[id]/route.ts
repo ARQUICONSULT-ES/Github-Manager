@@ -33,7 +33,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { name, email, password, role } = body;
+    const { name, email, password, role, githubToken } = body;
 
     // Validar campos requeridos
     if (!name || !email || !role) {
@@ -74,6 +74,7 @@ export async function PUT(
       name,
       email,
       role,
+      githubToken: githubToken || null,
     };
 
     // Si se proporciona una nueva contraseña, encriptarla
@@ -90,6 +91,7 @@ export async function PUT(
         name: true,
         email: true,
         role: true,
+        githubToken: true,
         createdAt: true,
         updatedAt: true,
         password: false,

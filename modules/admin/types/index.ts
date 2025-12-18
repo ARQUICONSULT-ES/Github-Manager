@@ -4,6 +4,7 @@ export interface User {
   email: string;
   password: string;
   role: 'ADMIN' | 'USER';
+  githubToken?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -13,6 +14,7 @@ export interface UserFormData {
   email: string;
   password?: string;
   role: 'ADMIN' | 'USER';
+  githubToken?: string;
 }
 
 export interface UsersResponse {

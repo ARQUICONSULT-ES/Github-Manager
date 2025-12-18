@@ -37,6 +37,7 @@ export async function GET() {
         name: true,
         email: true,
         role: true,
+        githubToken: true,
         createdAt: true,
         updatedAt: true,
         password: false, // No devolver password
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, email, password, role } = body;
+    const { name, email, password, role, githubToken } = body;
 
     // Validar campos requeridos
     if (!name || !email || !password || !role) {
@@ -110,12 +111,14 @@ export async function POST(request: Request) {
         email,
         password: hashedPassword,
         role,
+        githubToken: githubToken || null,
       },
       select: {
         id: true,
         name: true,
         email: true,
         role: true,
+        githubToken: true,
         createdAt: true,
         updatedAt: true,
         password: false,
