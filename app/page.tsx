@@ -1,14 +1,38 @@
 "use client";
 
 import { useState } from "react";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implementar lógica de login
+    setError("");
+    setIsLoading(true);
+
+    try {
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError("Credenciales incorrectas");
+      } else if (result?.ok) {
+        router.push("/customers");
+      }
+    } catch (err) {
+      setError("Error al iniciar sesión");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -132,11 +156,18 @@ export default function Home() {
                 />
               </div>
 
+              {error && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                </div>
+              )}
+
               <button
                 type="submit"
-                className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-lg shadow-blue-500/50 dark:shadow-blue-500/30"
+                disabled={isLoading}
+                className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-lg shadow-blue-500/50 dark:shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Iniciar Sesión
+                {isLoading ? "Iniciando sesión..." : "Iniciar Sesión"}
               </button>
             </form>
 

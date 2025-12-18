@@ -20,13 +20,13 @@ enum Role {
 }
 
 model User {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name          String
-  email         String    @unique
-  password      String    
-  role          Role      @default(USER)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relación: Un usuario puede tener acceso a muchos customers
   // customers  Customer[]
@@ -44,37 +44,37 @@ model Customer {
 
 // Tabla de Tenants
 model Tenant {
-  id              String        @id @db.Uuid
-  customerId      String        @db.Uuid
-  customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  description     String?       @db.VarChar(500)
-  createdAt       DateTime
-  modifiedAt      DateTime
+  id             String        @id @db.Uuid
+  customerId     String        @db.Uuid
+  customer       Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  description    String?       @db.VarChar(500)
+  createdAt      DateTime
+  modifiedAt     DateTime
   // Campos de conexión
-  connectionId    String?       @db.Uuid
-  grantType       String?       @db.VarChar(100)
-  clientId        String?       @db.Uuid
-  clientSecret    String?       @db.Text
-  scope           String?       @db.VarChar(200)
-  token           String?       @db.Text
-  tokenExpiresAt  DateTime?
-  environments    Environment[]
+  connectionId   String?       @db.Uuid
+  grantType      String?       @db.VarChar(100)
+  clientId       String?       @db.Uuid
+  clientSecret   String?       @db.Text
+  scope          String?       @db.VarChar(200)
+  token          String?       @db.Text
+  tokenExpiresAt DateTime?
+  environments   Environment[]
 
   @@map("tenants")
 }
 
 // Tabla relacionada: Environments
 model Environment {
-  tenantId          String      @db.Uuid
-  name              String      @db.VarChar(50)
-  type              String?     @db.VarChar(50)
-  status            String?     @db.VarChar(50)
-  webClientUrl      String?     @db.VarChar(1000)
-  locationName      String?     @db.VarChar(50)
-  applicationVersion String?    @db.VarChar(50)
-  platformVersion   String?     @db.VarChar(50)
-  tenant            Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  extensions        Extension[]
+  tenantId           String      @db.Uuid
+  name               String      @db.VarChar(50)
+  type               String?     @db.VarChar(50)
+  status             String?     @db.VarChar(50)
+  webClientUrl       String?     @db.VarChar(1000)
+  locationName       String?     @db.VarChar(50)
+  applicationVersion String?     @db.VarChar(50)
+  platformVersion    String?     @db.VarChar(50)
+  tenant             Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  extensions         Extension[]
 
   @@id([tenantId, name])
   @@map("environments")
