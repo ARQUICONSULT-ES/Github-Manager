@@ -9,6 +9,10 @@ export function UserMenu() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    console.log('UserMenu montado - Session:', session, 'Status:', status);
+  }, [session, status]);
+
+  useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsOpen(false);
@@ -21,36 +25,37 @@ export function UserMenu() {
 
   const handleLogout = async () => {
     setIsOpen(false);
-    await signOut({ callbackUrl: "/" });
+    await signOut({ 
+      callbackUrl: "/",
+      redirect: true 
+    });
   };
 
   if (status === "loading") {
     return (
-      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
+      <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
     );
   }
 
   if (!session?.user) {
-    return (
-      <button className="rounded-full w-8 h-8 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-        <svg
-          className="w-5 h-5 text-gray-600 dark:text-gray-300"
-          fill="currentColor"
-          viewBox="0 0 16 16"
-        >
-          <path d="M8 8a3 3 0 100-6 3 3 0 000 6zm2-3a2 2 0 11-4 0 2 2 0 014 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z" />
-        </svg>
-      </button>
-    );
+    console.log('No hay sesión activa');
+    return null; // No mostrar nada si no hay sesión
   }
 
   const user = session.user;
 
+  const handleToggleMenu = () => {
+    console.log('Toggle menu clicked. Current state:', isOpen);
+    setIsOpen(!isOpen);
+  };
+
   return (
     <div className="relative" ref={menuRef}>
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="rounded-full w-8 h-8 overflow-hidden ring-2 ring-transparent hover:ring-gray-300 dark:hover:ring-gray-600 transition-all bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm"
+        onClick={handleToggleMenu}
+        type="button"
+        className="rounded-full w-10 h-10 overflow-hidden ring-2 ring-transparent hover:ring-blue-400 dark:hover:ring-blue-600 transition-all bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+        aria-label="Menú de usuario"
       >
         {user.name ? user.name.charAt(0).toUpperCase() : user.email?.charAt(0).toUpperCase()}
       </button>
