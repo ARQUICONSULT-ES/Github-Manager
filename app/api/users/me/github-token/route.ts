@@ -25,15 +25,19 @@ export async function PUT(request: Request) {
       );
     }
 
-    // Actualizar solo el githubToken del usuario actual
+    // Actualizar el githubToken del usuario actual
+    // La foto se actualizará automáticamente cuando acceda a la página de repositorios
     const updatedUser = await prisma.user.update({
       where: { email: session.user.email },
-      data: { githubToken: githubToken.trim() },
+      data: { 
+        githubToken: githubToken.trim(),
+      },
       select: {
         id: true,
         name: true,
         email: true,
         githubToken: true,
+        githubAvatar: true,
       },
     });
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getUserPermissions } from "@/lib/auth-permissions";
 
 /**
  * GET /api/environments
@@ -7,7 +8,26 @@ import prisma from "@/lib/prisma";
  */
 export async function GET(request: NextRequest) {
   try {
+    const permissions = await getUserPermissions();
+
+    if (!permissions.isAuthenticated) {
+      return NextResponse.json(
+        { error: "No autorizado" },
+        { status: 401 }
+      );
+    }
+
+    // Construir el where según los permisos
+    const whereClause = permissions.isAdmin
+      ? {} // Admin ve todos los environments
+      : {
+          tenant: {
+            customerId: { in: permissions.allowedCustomerIds },
+          },
+        }; // USER ve solo environments de sus clientes permitidos
+
     const environments = await prisma.environment.findMany({
+      where: whereClause,
       include: {
         tenant: {
           include: {

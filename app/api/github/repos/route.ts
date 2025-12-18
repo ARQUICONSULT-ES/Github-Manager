@@ -18,7 +18,11 @@ export async function GET(request: NextRequest) {
     // Obtener el token de GitHub del usuario desde la base de datos
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
-      select: { githubToken: true },
+      select: { 
+        id: true,
+        githubToken: true,
+        githubAvatar: true,
+      },
     });
 
     if (!user?.githubToken) {
@@ -27,6 +31,35 @@ export async function GET(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    // Obtener y actualizar la foto de perfil de GitHub en segundo plano
+    // No esperamos ni bloqueamos la respuesta de repos
+    (async () => {
+      try {
+        const githubUserResponse = await fetch("https://api.github.com/user", {
+          headers: {
+            Authorization: `Bearer ${user.githubToken}`,
+            Accept: "application/vnd.github.v3+json",
+          },
+        });
+
+        if (githubUserResponse.ok) {
+          const githubUser = await githubUserResponse.json();
+          const newAvatar = githubUser.avatar_url || null;
+
+          // Solo actualizar si el avatar ha cambiado
+          if (newAvatar !== user.githubAvatar) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { githubAvatar: newAvatar },
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Error actualizando avatar de GitHub:", err);
+        // No hacer nada si falla, es una actualización en segundo plano
+      }
+    })();
 
     const repos = await getUserRepos(user.githubToken);
     return NextResponse.json(repos);

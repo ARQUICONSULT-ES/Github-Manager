@@ -48,10 +48,20 @@ export function UserMenu() {
       <button
         onClick={handleToggleMenu}
         type="button"
-        className="rounded-full w-10 h-10 overflow-hidden ring-2 ring-transparent hover:ring-blue-400 dark:hover:ring-blue-600 transition-all bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="rounded-full w-10 h-10 overflow-hidden ring-2 ring-transparent hover:ring-blue-400 dark:hover:ring-blue-600 transition-all flex items-center justify-center cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
         aria-label="Menú de usuario"
       >
-        {user.name ? user.name.charAt(0).toUpperCase() : user.email?.charAt(0).toUpperCase()}
+        {user.image ? (
+          <img 
+            src={user.image} 
+            alt={user.name || user.email || "Usuario"} 
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+            {user.name ? user.name.charAt(0).toUpperCase() : user.email?.charAt(0).toUpperCase()}
+          </div>
+        )}
       </button>
 
       {isOpen && (

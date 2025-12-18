@@ -1,10 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getUserPermissions } from "@/lib/auth-permissions";
 
 // GET - Obtener todos los clientes
 export async function GET() {
   try {
+    const permissions = await getUserPermissions();
+
+    if (!permissions.isAuthenticated) {
+      return NextResponse.json(
+        { error: "No autorizado" },
+        { status: 401 }
+      );
+    }
+
+    // Construir el where según los permisos
+    const whereClause = permissions.isAdmin
+      ? {} // Admin ve todos los clientes
+      : { id: { in: permissions.allowedCustomerIds } }; // USER ve solo sus clientes permitidos
+
     const customers = await prisma.customer.findMany({
+      where: whereClause,
       orderBy: {
         customerName: 'asc',
       },

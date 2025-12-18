@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getUserPermissions } from "@/lib/auth-permissions";
 
 /**
  * GET /api/applications
@@ -7,7 +8,28 @@ import prisma from "@/lib/prisma";
  */
 export async function GET(request: NextRequest) {
   try {
+    const permissions = await getUserPermissions();
+
+    if (!permissions.isAuthenticated) {
+      return NextResponse.json(
+        { error: "No autorizado" },
+        { status: 401 }
+      );
+    }
+
+    // Construir el where según los permisos
+    const whereClause = permissions.isAdmin
+      ? {} // Admin ve todas las aplicaciones
+      : {
+          environment: {
+            tenant: {
+              customerId: { in: permissions.allowedCustomerIds },
+            },
+          },
+        }; // USER ve solo aplicaciones de sus clientes permitidos
+
     const applications = await prisma.extension.findMany({
+      where: whereClause,
       include: {
         environment: {
           include: {

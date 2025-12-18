@@ -45,6 +45,7 @@ const authOptions: NextAuthOptions = {
                         email: user.email,
                         name: user.name,
                         role: user.role,
+                        image: user.githubAvatar || undefined,
                     };
                 } catch (error) {
                     console.error("Error en authorize:", error);
@@ -58,6 +59,7 @@ const authOptions: NextAuthOptions = {
             if (user) {
                 token.id = user.id;
                 token.role = user.role;
+                token.image = user.image;
             }
             return token;
         },
@@ -65,6 +67,7 @@ const authOptions: NextAuthOptions = {
             if (session.user) {
                 session.user.id = token.id as string;
                 session.user.role = token.role as string;
+                session.user.image = token.image as string;
             }
             return session;
         }

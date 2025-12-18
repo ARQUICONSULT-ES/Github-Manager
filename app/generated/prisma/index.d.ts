@@ -1483,6 +1483,7 @@ export namespace Prisma {
     password: string | null
     role: $Enums.Role | null
     githubToken: string | null
+    githubAvatar: string | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -1494,6 +1495,7 @@ export namespace Prisma {
     password: string | null
     role: $Enums.Role | null
     githubToken: string | null
+    githubAvatar: string | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -1505,6 +1507,7 @@ export namespace Prisma {
     password: number
     role: number
     githubToken: number
+    githubAvatar: number
     createdAt: number
     updatedAt: number
     _all: number
@@ -1518,6 +1521,7 @@ export namespace Prisma {
     password?: true
     role?: true
     githubToken?: true
+    githubAvatar?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -1529,6 +1533,7 @@ export namespace Prisma {
     password?: true
     role?: true
     githubToken?: true
+    githubAvatar?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -1540,6 +1545,7 @@ export namespace Prisma {
     password?: true
     role?: true
     githubToken?: true
+    githubAvatar?: true
     createdAt?: true
     updatedAt?: true
     _all?: true
@@ -1624,6 +1630,7 @@ export namespace Prisma {
     password: string
     role: $Enums.Role
     githubToken: string | null
+    githubAvatar: string | null
     createdAt: Date
     updatedAt: Date
     _count: UserCountAggregateOutputType | null
@@ -1652,6 +1659,7 @@ export namespace Prisma {
     password?: boolean
     role?: boolean
     githubToken?: boolean
+    githubAvatar?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     allowedCustomers?: boolean | User$allowedCustomersArgs<ExtArgs>
@@ -1665,6 +1673,7 @@ export namespace Prisma {
     password?: boolean
     role?: boolean
     githubToken?: boolean
+    githubAvatar?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }, ExtArgs["result"]["user"]>
@@ -1676,6 +1685,7 @@ export namespace Prisma {
     password?: boolean
     role?: boolean
     githubToken?: boolean
+    githubAvatar?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }, ExtArgs["result"]["user"]>
@@ -1687,11 +1697,12 @@ export namespace Prisma {
     password?: boolean
     role?: boolean
     githubToken?: boolean
+    githubAvatar?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type UserOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "email" | "password" | "role" | "githubToken" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
+  export type UserOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "email" | "password" | "role" | "githubToken" | "githubAvatar" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
   export type UserInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     allowedCustomers?: boolean | User$allowedCustomersArgs<ExtArgs>
     _count?: boolean | UserCountOutputTypeDefaultArgs<ExtArgs>
@@ -1711,6 +1722,7 @@ export namespace Prisma {
       password: string
       role: $Enums.Role
       githubToken: string | null
+      githubAvatar: string | null
       createdAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["user"]>
@@ -2143,6 +2155,7 @@ export namespace Prisma {
     readonly password: FieldRef<"User", 'String'>
     readonly role: FieldRef<"User", 'Role'>
     readonly githubToken: FieldRef<"User", 'String'>
+    readonly githubAvatar: FieldRef<"User", 'String'>
     readonly createdAt: FieldRef<"User", 'DateTime'>
     readonly updatedAt: FieldRef<"User", 'DateTime'>
   }
@@ -8111,6 +8124,7 @@ export namespace Prisma {
     password: 'password',
     role: 'role',
     githubToken: 'githubToken',
+    githubAvatar: 'githubAvatar',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
   };
@@ -8280,6 +8294,7 @@ export namespace Prisma {
     password?: StringFilter<"User"> | string
     role?: EnumRoleFilter<"User"> | $Enums.Role
     githubToken?: StringNullableFilter<"User"> | string | null
+    githubAvatar?: StringNullableFilter<"User"> | string | null
     createdAt?: DateTimeFilter<"User"> | Date | string
     updatedAt?: DateTimeFilter<"User"> | Date | string
     allowedCustomers?: UserCustomerListRelationFilter
@@ -8292,6 +8307,7 @@ export namespace Prisma {
     password?: SortOrder
     role?: SortOrder
     githubToken?: SortOrderInput | SortOrder
+    githubAvatar?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     allowedCustomers?: UserCustomerOrderByRelationAggregateInput
@@ -8307,6 +8323,7 @@ export namespace Prisma {
     password?: StringFilter<"User"> | string
     role?: EnumRoleFilter<"User"> | $Enums.Role
     githubToken?: StringNullableFilter<"User"> | string | null
+    githubAvatar?: StringNullableFilter<"User"> | string | null
     createdAt?: DateTimeFilter<"User"> | Date | string
     updatedAt?: DateTimeFilter<"User"> | Date | string
     allowedCustomers?: UserCustomerListRelationFilter
@@ -8319,6 +8336,7 @@ export namespace Prisma {
     password?: SortOrder
     role?: SortOrder
     githubToken?: SortOrderInput | SortOrder
+    githubAvatar?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     _count?: UserCountOrderByAggregateInput
@@ -8336,6 +8354,7 @@ export namespace Prisma {
     password?: StringWithAggregatesFilter<"User"> | string
     role?: EnumRoleWithAggregatesFilter<"User"> | $Enums.Role
     githubToken?: StringNullableWithAggregatesFilter<"User"> | string | null
+    githubAvatar?: StringNullableWithAggregatesFilter<"User"> | string | null
     createdAt?: DateTimeWithAggregatesFilter<"User"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"User"> | Date | string
   }
@@ -8682,6 +8701,7 @@ export namespace Prisma {
     password: string
     role?: $Enums.Role
     githubToken?: string | null
+    githubAvatar?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     allowedCustomers?: UserCustomerCreateNestedManyWithoutUserInput
@@ -8694,6 +8714,7 @@ export namespace Prisma {
     password: string
     role?: $Enums.Role
     githubToken?: string | null
+    githubAvatar?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     allowedCustomers?: UserCustomerUncheckedCreateNestedManyWithoutUserInput
@@ -8706,6 +8727,7 @@ export namespace Prisma {
     password?: StringFieldUpdateOperationsInput | string
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     githubToken?: NullableStringFieldUpdateOperationsInput | string | null
+    githubAvatar?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     allowedCustomers?: UserCustomerUpdateManyWithoutUserNestedInput
@@ -8718,6 +8740,7 @@ export namespace Prisma {
     password?: StringFieldUpdateOperationsInput | string
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     githubToken?: NullableStringFieldUpdateOperationsInput | string | null
+    githubAvatar?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     allowedCustomers?: UserCustomerUncheckedUpdateManyWithoutUserNestedInput
@@ -8730,6 +8753,7 @@ export namespace Prisma {
     password: string
     role?: $Enums.Role
     githubToken?: string | null
+    githubAvatar?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -8741,6 +8765,7 @@ export namespace Prisma {
     password?: StringFieldUpdateOperationsInput | string
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     githubToken?: NullableStringFieldUpdateOperationsInput | string | null
+    githubAvatar?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -8752,6 +8777,7 @@ export namespace Prisma {
     password?: StringFieldUpdateOperationsInput | string
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     githubToken?: NullableStringFieldUpdateOperationsInput | string | null
+    githubAvatar?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -9189,6 +9215,7 @@ export namespace Prisma {
     password?: SortOrder
     role?: SortOrder
     githubToken?: SortOrder
+    githubAvatar?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -9200,6 +9227,7 @@ export namespace Prisma {
     password?: SortOrder
     role?: SortOrder
     githubToken?: SortOrder
+    githubAvatar?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -9211,6 +9239,7 @@ export namespace Prisma {
     password?: SortOrder
     role?: SortOrder
     githubToken?: SortOrder
+    githubAvatar?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -10218,6 +10247,7 @@ export namespace Prisma {
     password: string
     role?: $Enums.Role
     githubToken?: string | null
+    githubAvatar?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -10229,6 +10259,7 @@ export namespace Prisma {
     password: string
     role?: $Enums.Role
     githubToken?: string | null
+    githubAvatar?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -10275,6 +10306,7 @@ export namespace Prisma {
     password?: StringFieldUpdateOperationsInput | string
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     githubToken?: NullableStringFieldUpdateOperationsInput | string | null
+    githubAvatar?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -10286,6 +10318,7 @@ export namespace Prisma {
     password?: StringFieldUpdateOperationsInput | string
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     githubToken?: NullableStringFieldUpdateOperationsInput | string | null
+    githubAvatar?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }

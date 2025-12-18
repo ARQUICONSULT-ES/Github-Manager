@@ -27,9 +27,17 @@ export default function UserCard({ user, onClick }: UserCardProps) {
       <div className="flex items-start gap-4">
         {/* Avatar */}
         <div className="flex-shrink-0">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-lg">
-            {user.name.charAt(0).toUpperCase()}
-          </div>
+          {user.githubAvatar ? (
+            <img 
+              src={user.githubAvatar} 
+              alt={user.name}
+              className="w-12 h-12 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-lg">
+              {user.name.charAt(0).toUpperCase()}
+            </div>
+          )}
         </div>
 
         {/* Información del usuario */}

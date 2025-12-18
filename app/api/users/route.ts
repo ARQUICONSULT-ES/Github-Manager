@@ -38,6 +38,7 @@ export async function GET() {
         email: true,
         role: true,
         githubToken: true,
+        githubAvatar: true,
         createdAt: true,
         updatedAt: true,
         password: false, // No devolver password
@@ -147,6 +148,7 @@ export async function POST(request: Request) {
         email: true,
         role: true,
         githubToken: true,
+        githubAvatar: true,
         createdAt: true,
         updatedAt: true,
         password: false,

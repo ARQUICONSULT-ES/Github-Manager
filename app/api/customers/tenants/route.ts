@@ -1,9 +1,25 @@
 import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { getUserPermissions } from "@/lib/auth-permissions";
 
 export async function GET() {
   try {
+    const permissions = await getUserPermissions();
+
+    if (!permissions.isAuthenticated) {
+      return NextResponse.json(
+        { error: "No autorizado" },
+        { status: 401 }
+      );
+    }
+
+    // Construir el where según los permisos
+    const whereClause = permissions.isAdmin
+      ? {} // Admin ve todos los tenants
+      : { customerId: { in: permissions.allowedCustomerIds } }; // USER ve solo tenants de sus clientes permitidos
+
     const tenants = await prisma.tenant.findMany({
+      where: whereClause,
       select: {
         id: true,
         customerId: true,

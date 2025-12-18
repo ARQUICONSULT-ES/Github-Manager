@@ -11,6 +11,7 @@ export interface User {
   password: string;
   role: 'ADMIN' | 'USER';
   githubToken?: string | null;
+  githubAvatar?: string | null;
   allowedCustomers?: AllowedCustomer[];
   createdAt: string;
   updatedAt: string;

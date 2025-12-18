@@ -111,6 +111,7 @@ export async function PUT(
         email: true,
         role: true,
         githubToken: true,
+        githubAvatar: true,
         createdAt: true,
         updatedAt: true,
         password: false,

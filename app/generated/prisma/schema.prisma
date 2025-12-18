@@ -20,14 +20,15 @@ enum Role {
 }
 
 model User {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name        String
-  email       String   @unique
-  password    String
-  role        Role     @default(USER)
-  githubToken String?  @map("github_token")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String
+  email        String   @unique
+  password     String
+  role         Role     @default(USER)
+  githubToken  String?  @map("github_token")
+  githubAvatar String?  @map("github_avatar")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relación: Un usuario puede tener acceso a muchos customers
   allowedCustomers UserCustomer[]

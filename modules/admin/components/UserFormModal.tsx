@@ -164,7 +164,7 @@ export default function UserFormModal({
         <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white dark:bg-gray-800 shadow-xl">
           {/* Header */}
           <div className="sticky top-0 z-10 border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-700 dark:bg-gray-800">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 {isEditMode ? "Editar Usuario" : "Crear Nuevo Usuario"}
               </h2>
@@ -190,10 +190,7 @@ export default function UserFormModal({
 
             {/* User info header (solo en modo edición) */}
             {isEditMode && (
-              <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-2xl">
-                  {user.name.charAt(0).toUpperCase()}
-                </div>
+              <div className="flex items-center justify-between gap-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">ID de Usuario</p>
                   <p className="font-mono text-xs text-gray-700 dark:text-gray-300">{user.id}</p>
@@ -201,6 +198,13 @@ export default function UserFormModal({
                     Creado: {new Date(user.createdAt).toLocaleDateString('es-ES')}
                   </p>
                 </div>
+                {user.githubAvatar && (
+                  <img 
+                    src={user.githubAvatar} 
+                    alt={user.name}
+                    className="w-12 h-12 rounded-full object-cover ring-2 ring-blue-500 dark:ring-blue-400"
+                  />
+                )}
               </div>
             )}
 
