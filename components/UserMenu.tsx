@@ -9,10 +9,6 @@ export function UserMenu() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    console.log('UserMenu montado - Session:', session, 'Status:', status);
-  }, [session, status]);
-
-  useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsOpen(false);
@@ -38,14 +34,12 @@ export function UserMenu() {
   }
 
   if (!session?.user) {
-    console.log('No hay sesión activa');
     return null; // No mostrar nada si no hay sesión
   }
 
   const user = session.user;
 
   const handleToggleMenu = () => {
-    console.log('Toggle menu clicked. Current state:', isOpen);
     setIsOpen(!isOpen);
   };
 
