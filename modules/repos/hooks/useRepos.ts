@@ -7,6 +7,7 @@ interface UseReposReturn {
   repos: GitHubRepository[];
   isLoading: boolean;
   error: string | null;
+  needsToken: boolean;
   fetchRepos: () => Promise<void>;
   refetch: () => Promise<void>;
 }
@@ -24,16 +25,24 @@ export function useRepos(): UseReposReturn {
     return !dataCache.has(CACHE_KEYS.REPOS);
   });
   const [error, setError] = useState<string | null>(null);
+  const [needsToken, setNeedsToken] = useState(false);
   const router = useRouter();
 
   const fetchRepos = async () => {
     setIsLoading(true);
     setError(null);
+    setNeedsToken(false);
     
     try {
       const res = await fetch("/api/github/repos");
       
       if (res.status === 401) {
+        const data = await res.json();
+        if (data.error?.includes("GitHub token")) {
+          setNeedsToken(true);
+          setError("Se requiere un token de GitHub para acceder a los repositorios");
+          return;
+        }
         router.push("/");
         return;
       }
@@ -55,10 +64,8 @@ export function useRepos(): UseReposReturn {
   };
 
   useEffect(() => {
-    // Solo cargar si no hay datos en cache
-    if (!dataCache.has(CACHE_KEYS.REPOS)) {
-      fetchRepos();
-    }
+    // Siempre cargar los repos al montar el componente para verificar el token
+    fetchRepos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -66,6 +73,7 @@ export function useRepos(): UseReposReturn {
     repos,
     isLoading,
     error,
+    needsToken,
     fetchRepos,
     refetch: fetchRepos,
   };
