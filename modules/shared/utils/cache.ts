@@ -73,9 +73,15 @@ export const ADMIN_CACHE_KEYS = {
   USERS: 'users',
 } as const;
 
+// Keys para el cache - Módulo Applications
+export const APPLICATIONS_CACHE_KEYS = {
+  APPLICATIONS: 'applications',
+} as const;
+
 // Exportar todos los cache keys
 export const CACHE_KEYS = {
   ...CUSTOMERS_CACHE_KEYS,
   ...REPOS_CACHE_KEYS,
   ...ADMIN_CACHE_KEYS,
+  ...APPLICATIONS_CACHE_KEYS,
 } as const;

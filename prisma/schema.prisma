@@ -112,3 +112,15 @@ model InstalledApp {
   @@id([tenantId, environmentName, id])
   @@map("installed_apps")
 }
+
+// Tabla de Aplicaciones
+model Application {
+  id             String   @id @db.Uuid
+  name           String   @db.VarChar(255)
+  publisher      String   @db.VarChar(255)
+  githubRepoName String   @map("github_repo_name") @db.VarChar(255)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("applications")
+}

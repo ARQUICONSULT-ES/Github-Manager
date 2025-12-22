@@ -181,6 +181,15 @@ exports.Prisma.InstalledAppScalarFieldEnum = {
   state: 'state'
 };
 
+exports.Prisma.ApplicationScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  publisher: 'publisher',
+  githubRepoName: 'githubRepoName',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -206,7 +215,8 @@ exports.Prisma.ModelName = {
   UserCustomer: 'UserCustomer',
   Tenant: 'Tenant',
   Environment: 'Environment',
-  InstalledApp: 'InstalledApp'
+  InstalledApp: 'InstalledApp',
+  Application: 'Application'
 };
 
 /**
