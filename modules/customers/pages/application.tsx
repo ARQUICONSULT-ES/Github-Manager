@@ -4,13 +4,20 @@ import { useState } from "react";
 import { ApplicationsList } from "@/modules/customers/components/ApplicationsList";
 import { ApplicationListSkeleton } from "@/modules/customers/components/ApplicationCardSkeleton";
 import { useAllApplications } from "@/modules/customers/hooks/useAllApplications";
+import { useApplicationFilter } from "@/modules/customers/hooks/useApplicationFilter";
 import { syncAllApplications } from "@/modules/customers/services/applicationService";
 
 export function ApplicationsPage() {
   const { applications, loading, isRefreshing, error, reload } = useAllApplications();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterEnvironmentType, setFilterEnvironmentType] = useState<"all" | "Production" | "Sandbox">("all");
-  const [hideMicrosoftApps, setHideMicrosoftApps] = useState(true);
+  const {
+    filteredApps,
+    searchQuery,
+    setSearchQuery,
+    filterEnvironmentType,
+    setFilterEnvironmentType,
+    hideMicrosoftApps,
+    setHideMicrosoftApps,
+  } = useApplicationFilter(applications);
   const [isSyncingApps, setIsSyncingApps] = useState(false);
 
   const handleRefresh = async () => {
@@ -72,26 +79,6 @@ export function ApplicationsPage() {
       </div>
     );
   }
-
-  // Filtrar aplicaciones
-  const filteredApps = applications.filter((app) => {
-    // Filtro de búsqueda
-    const matchesSearch = searchQuery === "" || 
-      app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.publisher.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.environmentName.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    // Filtro de tipo de entorno
-    const matchesEnvironmentType = filterEnvironmentType === "all" || 
-      app.environmentType === filterEnvironmentType;
-    
-    // Filtro para ocultar apps de Microsoft
-    const matchesMicrosoftFilter = !hideMicrosoftApps || 
-      app.publisher.toLowerCase() !== "microsoft";
-    
-    return matchesSearch && matchesEnvironmentType && matchesMicrosoftFilter;
-  });
 
   return (
     <div className="space-y-6">

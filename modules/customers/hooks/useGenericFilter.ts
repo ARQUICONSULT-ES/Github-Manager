@@ -1,24 +1,73 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import type { FilterConfig, FiltersState, FilterValue, FilterOperator } from "@/modules/customers/types/filters";
 
 type SortOption = string;
+
+interface UseGenericFilterOptions {
+  syncWithUrl?: boolean;
+}
 
 /**
  * Hook genérico para filtrar y ordenar una lista de elementos
  * @param items - Lista de elementos a filtrar
  * @param filterConfig - Configuración de los filtros disponibles
  * @param defaultSortBy - Campo por defecto para ordenar
+ * @param options - Opciones adicionales (ej: sincronización con URL)
  */
 export function useGenericFilter<T extends Record<string, any>>(
   items: T[],
   filterConfig: FilterConfig<T>,
-  defaultSortBy?: string
+  defaultSortBy?: string,
+  options: UseGenericFilterOptions = {}
 ) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<SortOption>(defaultSortBy || "");
+  const { syncWithUrl = false } = options;
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Inicializar desde URL si está habilitada la sincronización
+  const initialSearchQuery = syncWithUrl ? (searchParams.get("search") || "") : "";
+  const initialSortBy = syncWithUrl ? (searchParams.get("sort") || defaultSortBy || "") : (defaultSortBy || "");
+
+  const [searchQuery, setSearchQueryState] = useState(initialSearchQuery);
+  const [sortBy, setSortByState] = useState<SortOption>(initialSortBy);
   const [filters, setFilters] = useState<FiltersState>({});
+
+  // Función para actualizar la URL
+  const updateUrl = useCallback((params: Record<string, string>) => {
+    if (!syncWithUrl) return;
+
+    const newParams = new URLSearchParams(searchParams.toString());
+    
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) {
+        newParams.set(key, value);
+      } else {
+        newParams.delete(key);
+      }
+    });
+
+    const newUrl = `${window.location.pathname}?${newParams.toString()}`;
+    router.replace(newUrl, { scroll: false });
+  }, [syncWithUrl, searchParams, router]);
+
+  // Wrapper para setSearchQuery que también actualiza la URL
+  const setSearchQuery = useCallback((value: string) => {
+    setSearchQueryState(value);
+    if (syncWithUrl) {
+      updateUrl({ search: value });
+    }
+  }, [syncWithUrl, updateUrl]);
+
+  // Wrapper para setSortBy que también actualiza la URL
+  const setSortBy = useCallback((value: SortOption) => {
+    setSortByState(value);
+    if (syncWithUrl) {
+      updateUrl({ sort: value });
+    }
+  }, [syncWithUrl, updateUrl]);
 
   /**
    * Aplica un filtro individual a un item

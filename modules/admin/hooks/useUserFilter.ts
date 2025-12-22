@@ -1,10 +1,38 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import type { User } from "@/modules/admin/types";
 
 export function useUserFilter(users: User[]) {
-  const [searchQuery, setSearchQuery] = useState("");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Inicializar desde URL
+  const initialSearchQuery = searchParams.get('search') || '';
+  const [searchQuery, setSearchQueryState] = useState(initialSearchQuery);
+
+  // Función para actualizar la URL
+  const updateUrl = useCallback((params: Record<string, string>) => {
+    const newParams = new URLSearchParams(searchParams.toString());
+    
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) {
+        newParams.set(key, value);
+      } else {
+        newParams.delete(key);
+      }
+    });
+
+    const newUrl = `${window.location.pathname}?${newParams.toString()}`;
+    router.replace(newUrl, { scroll: false });
+  }, [searchParams, router]);
+
+  // Wrapper que actualiza la URL
+  const setSearchQuery = useCallback((query: string) => {
+    setSearchQueryState(query);
+    updateUrl({ search: query });
+  }, [updateUrl]);
 
   const filteredUsers = useMemo(() => {
     let filtered = [...users];

@@ -48,6 +48,6 @@ export const customerFilterConfig: FilterConfig<Customer> = {
  * Hook para filtrar clientes usando el sistema genérico de filtros
  */
 export function useCustomerFilter(customers: Customer[]) {
-  return useGenericFilter(customers, customerFilterConfig, "customerName");
+  return useGenericFilter(customers, customerFilterConfig, "customerName", { syncWithUrl: true });
 }
 
