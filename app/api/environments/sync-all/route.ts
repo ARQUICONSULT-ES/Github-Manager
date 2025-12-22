@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import type { BCEnvironmentsResponse, BCEnvironment } from "@/modules/customers/types";
 
 /**
  * Verifica si un token ha expirado y lo refresca si es necesario
@@ -99,6 +100,104 @@ async function ensureValidToken(tenantId: string): Promise<{ success: boolean; t
 }
 
 /**
+ * Sincroniza los entornos de un tenant específico con Business Central
+ */
+async function syncTenantEnvironments(tenantId: string, token: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Llamar a la API de Business Central usando el token validado
+    const bcApiUrl = process.env.BC_ADMIN_API_URL || "https://api.businesscentral.dynamics.com/admin/v2.28/applications";
+    const url = `${bcApiUrl}/environments`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Error from BC API for tenant ${tenantId}:`, errorText);
+      return { 
+        success: false, 
+        error: `Error al obtener environments: ${response.statusText}` 
+      };
+    }
+
+    const data: BCEnvironmentsResponse = await response.json();
+
+    // Sincronizar con la base de datos usando transacción
+    await prisma.$transaction(async (tx) => {
+      // Obtener environments existentes
+      const existingEnvironments = await tx.environment.findMany({
+        where: { tenantId },
+      });
+
+      // Crear un Set con los nombres de los environments actuales de BC
+      const currentEnvNames = new Set(data.value.map((env) => env.name));
+
+      // Marcar como SoftDeleted los que ya no existen en BC
+      const envsToSoftDelete = existingEnvironments.filter(
+        (env) => !currentEnvNames.has(env.name)
+      );
+
+      for (const env of envsToSoftDelete) {
+        await tx.environment.update({
+          where: {
+            tenantId_name: {
+              tenantId,
+              name: env.name,
+            },
+          },
+          data: { status: "SoftDeleted" },
+        });
+      }
+
+      // Crear o actualizar los environments actuales de BC
+      await Promise.all(
+        data.value.map((bcEnv: BCEnvironment) =>
+          tx.environment.upsert({
+            where: {
+              tenantId_name: {
+                tenantId,
+                name: bcEnv.name,
+              },
+            },
+            update: {
+              type: bcEnv.type,
+              applicationVersion: bcEnv.applicationVersion,
+              status: bcEnv.status,
+              webClientUrl: bcEnv.webClientLoginUrl,
+              locationName: bcEnv.locationName || null,
+              platformVersion: bcEnv.platformVersion || null,
+            },
+            create: {
+              tenantId,
+              name: bcEnv.name,
+              type: bcEnv.type,
+              applicationVersion: bcEnv.applicationVersion,
+              status: bcEnv.status,
+              webClientUrl: bcEnv.webClientLoginUrl,
+              locationName: bcEnv.locationName || null,
+              platformVersion: bcEnv.platformVersion || null,
+            },
+          })
+        )
+      );
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error(`Error syncing environments for tenant ${tenantId}:`, error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Error desconocido' 
+    };
+  }
+}
+
+/**
  * POST /api/environments/sync-all
  * Sincroniza los entornos de todos los tenants con Business Central
  */
@@ -137,36 +236,27 @@ export async function POST() {
         // Verificar y refrescar el token si es necesario
         const tokenResult = await ensureValidToken(tenant.id);
         
-        if (!tokenResult.success) {
+        if (!tokenResult.success || !tokenResult.token) {
           failedCount++;
           errors.push({
             tenantId: tenant.id,
             customerName: tenant.customer.customerName,
-            error: `Token inválido: ${tokenResult.error}`,
+            error: `Token inválido: ${tokenResult.error || 'No se pudo obtener token'}`,
           });
           continue; // Saltar a la siguiente iteración
         }
 
-        // Llamar al endpoint de sincronización individual
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/customers/tenants/${tenant.id}/environments/sync`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        );
+        // Sincronizar los entornos del tenant directamente
+        const syncResult = await syncTenantEnvironments(tenant.id, tokenResult.token);
 
-        if (response.ok) {
+        if (syncResult.success) {
           successCount++;
         } else {
           failedCount++;
-          const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
           errors.push({
             tenantId: tenant.id,
             customerName: tenant.customer.customerName,
-            error: errorData.error || `Error ${response.status}`,
+            error: syncResult.error || 'Error desconocido',
           });
         }
       } catch (error) {
