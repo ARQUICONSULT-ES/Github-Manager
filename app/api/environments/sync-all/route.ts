@@ -3,8 +3,9 @@ import prisma from "@/lib/prisma";
 
 /**
  * Verifica si un token ha expirado y lo refresca si es necesario
+ * Retorna el token válido (ya sea el actual o uno nuevo)
  */
-async function ensureValidToken(tenantId: string): Promise<{ success: boolean; error?: string }> {
+async function ensureValidToken(tenantId: string): Promise<{ success: boolean; token?: string; error?: string }> {
   try {
     // Obtener información del token
     const tenant = await prisma.tenant.findUnique({
@@ -23,11 +24,6 @@ async function ensureValidToken(tenantId: string): Promise<{ success: boolean; e
       return { success: false, error: "Tenant no encontrado" };
     }
 
-    // Verificar si no tiene token configurado
-    if (!tenant.token) {
-      return { success: false, error: "No tiene token configurado" };
-    }
-
     // Verificar si no tiene configuración de autenticación
     if (!tenant.grantType || !tenant.clientId || !tenant.clientSecret || !tenant.scope) {
       return { success: false, error: "Configuración de autenticación incompleta" };
@@ -36,30 +32,63 @@ async function ensureValidToken(tenantId: string): Promise<{ success: boolean; e
     // Verificar si el token ha expirado (con margen de 5 minutos)
     const now = new Date();
     const expirationBuffer = 5 * 60 * 1000; // 5 minutos en milisegundos
-    const needsRefresh = !tenant.tokenExpiresAt || 
+    const needsRefresh = !tenant.token || !tenant.tokenExpiresAt || 
                         new Date(tenant.tokenExpiresAt).getTime() - now.getTime() < expirationBuffer;
 
-    if (!needsRefresh) {
-      return { success: true }; // Token válido
+    if (!needsRefresh && tenant.token) {
+      return { success: true, token: tenant.token }; // Token válido
     }
 
-    // Refrescar el token
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/customers/tenants/${tenantId}/refresh-token`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    // Refrescar el token directamente (sin hacer petición HTTP interna)
+    console.log(`Refrescando token para tenant ${tenantId}...`);
+    
+    const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+    
+    const authRes = await fetch(authUrl, {
+      method: "POST",
+      body: new URLSearchParams({
+        grant_type: tenant.grantType,
+        client_id: tenant.clientId,
+        client_secret: tenant.clientSecret,
+        scope: tenant.scope,
+      }),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Error al refrescar token' }));
-      return { success: false, error: errorData.error || 'Error al refrescar token' };
+    if (!authRes.ok) {
+      const errorData = await authRes.json().catch(() => ({ error: "No se pudo parsear la respuesta de error" }));
+      console.error(`Error al refrescar token para tenant ${tenantId}:`, errorData);
+      return { 
+        success: false, 
+        error: `Error ${authRes.status} al obtener token: ${errorData.error || authRes.statusText}` 
+      };
     }
 
-    return { success: true };
+    // Parsear la respuesta
+    const authData = await authRes.json();
+    const accessToken = authData.access_token;
+    const expiresIn = authData.expires_in; // segundos
+
+    if (!accessToken) {
+      return { success: false, error: "No se recibió token de acceso" };
+    }
+
+    // Calcular la fecha de expiración
+    const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000);
+
+    // Actualizar el tenant con el nuevo token
+    await prisma.tenant.update({
+      where: { id: tenantId },
+      data: {
+        token: accessToken,
+        tokenExpiresAt: tokenExpiresAt,
+      },
+    });
+
+    console.log(`Token refrescado exitosamente para tenant ${tenantId}`);
+    return { success: true, token: accessToken };
   } catch (error) {
     console.error('Error ensuring valid token:', error);
     return { 
