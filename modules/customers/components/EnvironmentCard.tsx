@@ -102,18 +102,21 @@ export default function EnvironmentCard({ environment }: EnvironmentCardProps) {
           {environment.appsCount !== undefined && (
             <button
               onClick={handleApplicationsClick}
-              className="flex items-center gap-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 rounded p-1 transition-colors cursor-pointer"
+              className="flex items-center gap-2 text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded p-1 transition-colors cursor-pointer group/apps border border-transparent hover:border-blue-200 dark:hover:border-blue-800"
               title="Ver aplicaciones del entorno"
             >
-              <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5 text-gray-400 group-hover/apps:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
               </svg>
-              <div className="min-w-0 text-left">
-                <p className="text-xs text-gray-500 dark:text-gray-400">Apps</p>
-                <span className="text-xs font-medium text-gray-900 dark:text-white">
+              <div className="min-w-0 text-left flex-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400 group-hover/apps:text-blue-600 dark:group-hover/apps:text-blue-400">Apps</p>
+                <span className="text-xs font-medium text-gray-900 dark:text-white group-hover/apps:text-blue-600 dark:group-hover/apps:text-blue-400">
                   {environment.appsCount}
                 </span>
               </div>
+              <svg className="w-3.5 h-3.5 text-gray-400 group-hover/apps:text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
             </button>
           )}
         </div>
