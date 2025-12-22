@@ -28,7 +28,7 @@ export function useAllInstalledApps() {
       // Guardar en cache
       dataCache.set(CACHE_KEYS.INSTALLED_APPS, data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar aplicaciones instaladas');
+      setError(err instanceof Error ? err.message : 'Error al cargar instalaciones');
       console.error('Error loading installed apps:', err);
     } finally {
       setLoading(false);

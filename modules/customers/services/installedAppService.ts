@@ -9,7 +9,7 @@ export async function fetchAllInstalledApps(): Promise<InstalledAppWithEnvironme
     const response = await fetch("/api/installedapps");
     
     if (!response.ok) {
-      throw new Error('Error al cargar aplicaciones instaladas');
+      throw new Error('Error al cargar instalaciones');
     }
     
     const data = await response.json();

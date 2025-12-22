@@ -208,7 +208,7 @@ async function syncEnvironmentApplications(
 
 /**
  * POST /api/installedapps/sync-all
- * Sincroniza las aplicaciones de todos los entornos de todos los tenants con Business Central
+ * Sincroniza las instalaciones de todos los entornos de todos los tenants con Business Central
  */
 export async function POST() {
   try {

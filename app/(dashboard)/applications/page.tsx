@@ -1,5 +1,5 @@
-import { ApplicationsPage } from "@/modules/customers/pages/application";
+import { InstalledAppsPage } from "@/modules/customers/pages/installedapp";
 
 export default function ApplicationsRoute() {
-  return <ApplicationsPage />;
+  return <InstalledAppsPage />;
 }

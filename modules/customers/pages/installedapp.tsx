@@ -8,7 +8,7 @@ import { useAllInstalledApps } from "@/modules/customers/hooks/useAllInstalledAp
 import { useInstalledAppFilter } from "@/modules/customers/hooks/useInstalledAppFilter";
 import { syncAllInstalledApps } from "@/modules/customers/services/installedAppService";
 
-export function ApplicationsPage() {
+export function InstalledAppsPage() {
   const { installedApps, loading, isRefreshing, error, reload } = useAllInstalledApps();
   const {
     filteredApps,
@@ -42,7 +42,7 @@ export function ApplicationsPage() {
       }
     } catch (error) {
       console.error("Error syncing all installed apps:", error);
-      alert(`❌ Error al sincronizar las aplicaciones: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+      alert(`❌ Error al sincronizar las instalaciones: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     } finally {
       setIsSyncingApps(false);
     }
@@ -65,7 +65,7 @@ export function ApplicationsPage() {
           />
         </svg>
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-          Error al cargar aplicaciones
+          Error al cargar instalaciones
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
           {error}
@@ -86,7 +86,7 @@ export function ApplicationsPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Aplicaciones
+            Instalaciones
           </h1>
           <button
             onClick={handleRefresh}
@@ -107,7 +107,7 @@ export function ApplicationsPage() {
           </button>
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          {installedApps.length} aplicaciones en total
+          {installedApps.length} instalaciones en total
         </p>
       </div>
 
@@ -131,7 +131,7 @@ export function ApplicationsPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar aplicaciones por nombre, publisher, cliente o entorno..."
+            placeholder="Buscar instalaciones por nombre, publisher, cliente o entorno..."
             className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 bg-white text-sm placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:placeholder-gray-400"
           />
         </div>
@@ -175,7 +175,7 @@ export function ApplicationsPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
           </svg>
           <p className="text-gray-600 dark:text-gray-400">
-            {searchQuery ? `No se encontraron aplicaciones con "${searchQuery}"` : "No hay aplicaciones"}
+            {searchQuery ? `No se encontraron instalaciones con "${searchQuery}"` : "No hay instalaciones"}
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
             Haz clic en "Sincronizar Todos" para obtener las aplicaciones de Business Central

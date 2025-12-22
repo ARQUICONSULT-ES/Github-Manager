@@ -112,7 +112,7 @@ export default function DashboardLayout({
                       : 'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
                   }`}
                 >
-                  Aplicaciones
+                  Instalaciones
                   {isActive('/applications') && (
                     <span className="absolute -bottom-[21px] left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"></span>
                   )}
@@ -211,7 +211,7 @@ export default function DashboardLayout({
                     : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'
                 }`}
               >
-                Aplicaciones
+                Instalaciones
               </Link>
               {session?.user?.role === "ADMIN" && (
                 <Link
