@@ -1,3 +1,6 @@
+"use client";
+
+import { useRouter } from "next/navigation";
 import type { EnvironmentWithCustomer } from "@/modules/customers/types";
 
 interface EnvironmentCardProps {
@@ -5,6 +8,7 @@ interface EnvironmentCardProps {
 }
 
 export default function EnvironmentCard({ environment }: EnvironmentCardProps) {
+  const router = useRouter();
   const isDeleted = environment.status?.toLowerCase() === 'softdeleted';
   
   // Función para obtener el color de la etiqueta de tipo
@@ -16,6 +20,15 @@ export default function EnvironmentCard({ environment }: EnvironmentCardProps) {
       return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
     }
     return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400';
+  };
+
+  const handleApplicationsClick = () => {
+    const params = new URLSearchParams();
+    params.set('filterCustomer', environment.customerName);
+    if (environment.type) {
+      params.set('filterEnvType', environment.type);
+    }
+    router.push(`/applications?${params.toString()}`);
   };
   
   return (
@@ -86,17 +99,21 @@ export default function EnvironmentCard({ environment }: EnvironmentCardProps) {
 
           {/* Apps Count */}
           {environment.appsCount !== undefined && (
-            <div className="flex items-center gap-2 text-xs">
+            <button
+              onClick={handleApplicationsClick}
+              className="flex items-center gap-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 rounded p-1 transition-colors cursor-pointer"
+              title="Ver aplicaciones del entorno"
+            >
               <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
               </svg>
-              <div className="min-w-0">
+              <div className="min-w-0 text-left">
                 <p className="text-xs text-gray-500 dark:text-gray-400">Apps</p>
                 <span className="text-xs font-medium text-gray-900 dark:text-white">
                   {environment.appsCount}
                 </span>
               </div>
-            </div>
+            </button>
           )}
         </div>
 
