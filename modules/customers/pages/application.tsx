@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ApplicationsList } from "@/modules/customers/components/ApplicationsList";
 import { ApplicationListSkeleton } from "@/modules/customers/components/ApplicationCardSkeleton";
+import { ApplicationFilterPanel } from "@/modules/customers/components/ApplicationFilterPanel";
 import { useAllApplications } from "@/modules/customers/hooks/useAllApplications";
 import { useApplicationFilter } from "@/modules/customers/hooks/useApplicationFilter";
 import { syncAllApplications } from "@/modules/customers/services/applicationService";
@@ -13,10 +14,9 @@ export function ApplicationsPage() {
     filteredApps,
     searchQuery,
     setSearchQuery,
-    filterEnvironmentType,
-    setFilterEnvironmentType,
-    hideMicrosoftApps,
-    setHideMicrosoftApps,
+    advancedFilters,
+    updateAdvancedFilters,
+    clearAdvancedFilters,
   } = useApplicationFilter(applications);
   const [isSyncingApps, setIsSyncingApps] = useState(false);
 
@@ -111,7 +111,7 @@ export function ApplicationsPage() {
         </p>
       </div>
 
-      {/* Barra de herramientas */}
+      {/* Barra de búsqueda y botón de sincronización */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <svg
@@ -136,49 +136,33 @@ export function ApplicationsPage() {
           />
         </div>
 
-        <select
-          value={filterEnvironmentType}
-          onChange={(e) => setFilterEnvironmentType(e.target.value as any)}
-          className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        <button
+          onClick={handleSyncApplications}
+          disabled={isSyncingApps}
+          className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-500 disabled:bg-purple-800 disabled:cursor-wait rounded-lg transition-colors whitespace-nowrap"
+          title="Sincronizar todas las aplicaciones desde Business Central"
         >
-          <option value="all">Todos los tipos de entorno</option>
-          <option value="Production">Production</option>
-          <option value="Sandbox">Sandbox</option>
-        </select>
-
-        <label className="flex items-center gap-2 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={hideMicrosoftApps}
-            onChange={(e) => setHideMicrosoftApps(e.target.checked)}
-            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-          />
-          <span className="text-sm text-gray-700 dark:text-gray-300">
-            Ocultar apps Microsoft
-          </span>
-        </label>
-
-        <div className="flex items-center gap-3 ml-auto">
-          <button
-            onClick={handleSyncApplications}
-            disabled={isSyncingApps}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-500 disabled:bg-purple-800 disabled:cursor-wait rounded-lg transition-colors whitespace-nowrap"
-            title="Sincronizar todas las aplicaciones desde Business Central"
-          >
-            {isSyncingApps ? (
-              <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-            ) : (
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-              </svg>
-            )}
-            Sincronizar Todos
-          </button>
-        </div>
+          {isSyncingApps ? (
+            <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+          ) : (
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+          )}
+          Sincronizar Todos
+        </button>
       </div>
+
+      {/* Panel de filtros avanzados */}
+      <ApplicationFilterPanel
+        applications={applications}
+        filters={advancedFilters}
+        onFilterChange={updateAdvancedFilters}
+        onClearFilters={clearAdvancedFilters}
+      />
 
       {/* Contenido */}
       {loading ? (

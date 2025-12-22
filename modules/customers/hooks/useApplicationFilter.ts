@@ -1,8 +1,17 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import type { ApplicationWithEnvironment } from '@/modules/customers/types';
 import type { FilterConfig } from '@/modules/customers/types/filters';
 import { useGenericFilter } from './useGenericFilter';
+
+// Interfaz para filtros avanzados
+export interface ApplicationAdvancedFilters {
+  publisher?: string;
+  customerName?: string;
+  environmentType?: string;
+  publishedAs?: string;
+  hideMicrosoftApps?: boolean;
+}
 
 // Configuración de filtros para aplicaciones
 export const applicationFilterConfig: FilterConfig<ApplicationWithEnvironment> = {
@@ -46,72 +55,114 @@ export function useApplicationFilter(applications: ApplicationWithEnvironment[])
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // Inicializar filtros personalizados desde URL
-  const initialFilterType = (searchParams.get('envType') as "all" | "Production" | "Sandbox") || 'all';
-  const initialHideMicrosoft = searchParams.get('hideMicrosoft') !== 'false'; // por defecto true
+  // Inicializar filtros avanzados desde URL con valores por defecto
+  const getInitialFilters = useCallback((): ApplicationAdvancedFilters => {
+    const hideMicrosoft = searchParams.get('hideMicrosoft');
+    return {
+      publisher: searchParams.get('filterPublisher') || undefined,
+      customerName: searchParams.get('filterCustomer') || undefined,
+      environmentType: searchParams.get('filterEnvType') || undefined,
+      publishedAs: searchParams.get('filterPublishedAs') || undefined,
+      hideMicrosoftApps: hideMicrosoft === null ? true : hideMicrosoft === 'true', // true por defecto
+    };
+  }, [searchParams]);
 
-  const [filterEnvironmentType, setFilterEnvironmentTypeState] = useState<"all" | "Production" | "Sandbox">(initialFilterType);
-  const [hideMicrosoftApps, setHideMicrosoftAppsState] = useState(initialHideMicrosoft);
+  const [advancedFilters, setAdvancedFiltersState] = useState<ApplicationAdvancedFilters>(getInitialFilters);
 
-  // Aplicar filtros personalizados antes de pasar al hook genérico
-  const preFilteredApps = useMemo(() => {
-    let filtered = [...applications];
-
-    // Filtro de tipo de entorno
-    if (filterEnvironmentType !== "all") {
-      filtered = filtered.filter(app => app.environmentType === filterEnvironmentType);
+  // Sincronizar con URL cuando cambian los filtros
+  useEffect(() => {
+    const newParams = new URLSearchParams(window.location.search);
+    
+    // Actualizar parámetros de filtros
+    if (advancedFilters.publisher) {
+      newParams.set('filterPublisher', advancedFilters.publisher);
+    } else {
+      newParams.delete('filterPublisher');
     }
 
-    // Filtro para ocultar apps de Microsoft
-    if (hideMicrosoftApps) {
-      filtered = filtered.filter(app => app.publisher.toLowerCase() !== "microsoft");
+    if (advancedFilters.customerName) {
+      newParams.set('filterCustomer', advancedFilters.customerName);
+    } else {
+      newParams.delete('filterCustomer');
     }
 
-    return filtered;
-  }, [applications, filterEnvironmentType, hideMicrosoftApps]);
+    if (advancedFilters.environmentType) {
+      newParams.set('filterEnvType', advancedFilters.environmentType);
+    } else {
+      newParams.delete('filterEnvType');
+    }
+
+    if (advancedFilters.publishedAs) {
+      newParams.set('filterPublishedAs', advancedFilters.publishedAs);
+    } else {
+      newParams.delete('filterPublishedAs');
+    }
+
+    // Siempre guardar el estado de hideMicrosoftApps
+    newParams.set('hideMicrosoft', String(advancedFilters.hideMicrosoftApps ?? true));
+
+    const newUrl = `${window.location.pathname}?${newParams.toString()}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
+    
+    // Solo actualizar si la URL realmente cambió
+    if (newUrl !== currentUrl) {
+      router.replace(newUrl, { scroll: false });
+    }
+  }, [advancedFilters, router]);
+
+  // Aplicar filtros avanzados
+  const filteredByAdvancedFilters = useMemo(() => {
+    let result = [...applications];
+
+    // Filtrar apps de Microsoft si está activado
+    if (advancedFilters.hideMicrosoftApps) {
+      result = result.filter(app => app.publisher.toLowerCase() !== "microsoft");
+    }
+
+    if (advancedFilters.publisher) {
+      result = result.filter(app => app.publisher === advancedFilters.publisher);
+    }
+
+    if (advancedFilters.customerName) {
+      result = result.filter(app => app.customerName === advancedFilters.customerName);
+    }
+
+    if (advancedFilters.environmentType) {
+      result = result.filter(app => app.environmentType === advancedFilters.environmentType);
+    }
+
+    if (advancedFilters.publishedAs) {
+      result = result.filter(app => app.publishedAs === advancedFilters.publishedAs);
+    }
+
+    return result;
+  }, [applications, advancedFilters]);
 
   // Usar el hook genérico para búsqueda
   const {
     filteredItems: filteredApps,
     searchQuery,
-    setSearchQuery,
-  } = useGenericFilter(preFilteredApps, applicationFilterConfig, undefined, { syncWithUrl: true });
+    setSearchQuery: setSearchQueryBase,
+  } = useGenericFilter(filteredByAdvancedFilters, applicationFilterConfig, undefined, { syncWithUrl: true });
 
-  // Función para actualizar filtros personalizados en la URL
-  const updateCustomFilterUrl = useCallback((params: Record<string, string>) => {
-    const newParams = new URLSearchParams(searchParams.toString());
-    
-    Object.entries(params).forEach(([key, value]) => {
-      if (value && value !== 'all' && value !== 'false') {
-        newParams.set(key, value);
-      } else if (key === 'hideMicrosoft' && value === 'true') {
-        newParams.set(key, value);
-      } else {
-        newParams.delete(key);
-      }
+  // Función para limpiar filtros avanzados (mantiene hideMicrosoftApps)
+  const clearAdvancedFilters = useCallback(() => {
+    setAdvancedFiltersState({
+      hideMicrosoftApps: true,
     });
+  }, []);
 
-    const newUrl = `${window.location.pathname}?${newParams.toString()}`;
-    router.replace(newUrl, { scroll: false });
-  }, [searchParams, router]);
-
-  const setFilterEnvironmentType = useCallback((value: "all" | "Production" | "Sandbox") => {
-    setFilterEnvironmentTypeState(value);
-    updateCustomFilterUrl({ envType: value });
-  }, [updateCustomFilterUrl]);
-
-  const setHideMicrosoftApps = useCallback((value: boolean) => {
-    setHideMicrosoftAppsState(value);
-    updateCustomFilterUrl({ hideMicrosoft: value.toString() });
-  }, [updateCustomFilterUrl]);
+  // Función para actualizar filtros avanzados
+  const updateAdvancedFilters = useCallback((newFilters: ApplicationAdvancedFilters) => {
+    setAdvancedFiltersState(newFilters);
+  }, []);
 
   return {
     filteredApps,
     searchQuery,
-    setSearchQuery,
-    filterEnvironmentType,
-    setFilterEnvironmentType,
-    hideMicrosoftApps,
-    setHideMicrosoftApps,
+    setSearchQuery: setSearchQueryBase,
+    advancedFilters,
+    updateAdvancedFilters,
+    clearAdvancedFilters,
   };
 }
