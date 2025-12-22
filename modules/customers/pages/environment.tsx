@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import EnvironmentList from "@/modules/customers/components/EnvironmentList";
 import { EnvironmentListSkeleton } from "@/modules/customers/components/EnvironmentCardSkeleton";
+import { EnvironmentFilterPanel } from "@/modules/customers/components/EnvironmentFilterPanel";
 import type { EnvironmentListRef } from "@/modules/customers/components/EnvironmentList";
 import { useAllEnvironments } from "@/modules/customers/hooks/useAllEnvironments";
 import { useEnvironmentFilter } from "@/modules/customers/hooks/useEnvironmentFilter";
@@ -15,10 +16,9 @@ export function EnvironmentsPage() {
     filteredEnvironments,
     searchQuery,
     setSearchQuery,
-    sortBy,
-    setSortBy,
-    showDeleted,
-    setShowDeleted,
+    advancedFilters,
+    updateAdvancedFilters,
+    clearAdvancedFilters,
   } = useEnvironmentFilter(environments);
 
   const environmentListRef = useRef<EnvironmentListRef>(null);
@@ -35,11 +35,9 @@ export function EnvironmentsPage() {
       const { syncAllEnvironments } = await import("../services/environmentService");
       const result = await syncAllEnvironments();
       
-      // Recargar los datos después de la sincronización
       await reload();
       await fetchTenants();
       
-      // Mostrar notificación de éxito
       if (result.failed === 0) {
         alert(`✅ Sincronización completada con éxito: ${result.success}/${result.total} tenants sincronizados`);
       } else {
@@ -90,7 +88,6 @@ export function EnvironmentsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
@@ -119,7 +116,6 @@ export function EnvironmentsPage() {
         </p>
       </div>
 
-      {/* Barra de herramientas */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <svg
@@ -144,79 +140,33 @@ export function EnvironmentsPage() {
           />
         </div>
 
-        <div className="flex items-center gap-3 ml-auto">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-              Ordenar:
-            </span>
-            <div className="inline-flex rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden">
-              <button
-                onClick={() => setSortBy("customer")}
-                className={`px-3 py-2 text-sm font-medium transition-colors cursor-pointer ${
-                  sortBy === "customer"
-                    ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-                    : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-                }`}
-              >
-                Cliente
-              </button>
-              <button
-                onClick={() => setSortBy("name")}
-                className={`px-3 py-2 text-sm font-medium border-l border-gray-300 dark:border-gray-700 transition-colors cursor-pointer ${
-                  sortBy === "name"
-                    ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-                    : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-                }`}
-              >
-                Nombre
-              </button>
-              <button
-                onClick={() => setSortBy("type")}
-                className={`px-3 py-2 text-sm font-medium border-l border-gray-300 dark:border-gray-700 transition-colors cursor-pointer ${
-                  sortBy === "type"
-                    ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-                    : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-                }`}
-              >
-                Tipo
-              </button>
-            </div>
-          </div>
-
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={showDeleted}
-              onChange={(e) => setShowDeleted(e.target.checked)}
-              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-            />
-            <span className="text-sm text-gray-700 dark:text-gray-300">
-              Mostrar eliminados
-            </span>
-          </label>
-
-          <button
-            onClick={handleSyncAll}
-            disabled={isSyncingAll}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-500 disabled:bg-purple-800 disabled:cursor-wait rounded-lg transition-colors whitespace-nowrap"
-            title="Sincronizar todos los entornos desde Business Central"
-          >
-            {isSyncingAll ? (
-              <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-            ) : (
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-              </svg>
-            )}
-            Sincronizar Todos
-          </button>
-        </div>
+        <button
+          onClick={handleSyncAll}
+          disabled={isSyncingAll}
+          className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-500 disabled:bg-purple-800 disabled:cursor-wait rounded-lg transition-colors whitespace-nowrap"
+          title="Sincronizar todos los entornos desde Business Central"
+        >
+          {isSyncingAll ? (
+            <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+          ) : (
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+          )}
+          Sincronizar Todos
+        </button>
       </div>
 
-      {/* Contenido */}
+      <EnvironmentFilterPanel
+        environments={environments}
+        filters={advancedFilters}
+        onFilterChange={updateAdvancedFilters}
+        onClearFilters={clearAdvancedFilters}
+      />
+
       {loading ? (
         <EnvironmentListSkeleton count={9} />
       ) : filteredEnvironments.length > 0 ? (
