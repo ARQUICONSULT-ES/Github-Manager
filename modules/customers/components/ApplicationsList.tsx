@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { InstalledAppWithEnvironment } from "@/modules/customers/types";
 import { ApplicationCard } from "./ApplicationCard";
 
@@ -85,20 +86,16 @@ export function ApplicationsList({
         return (
           <div key={data.customerId} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
             {/* Header del cliente */}
-            <button
-              onClick={() => !lockExpanded && toggleCustomer(data.customerId)}
-              disabled={lockExpanded}
-              className={`w-full px-4 py-3 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 transition-colors ${
-                lockExpanded 
-                  ? 'cursor-default' 
-                  : 'hover:bg-gray-100 dark:hover:bg-gray-900 cursor-pointer'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                {/* Icono de expandir/colapsar (oculto si está bloqueado) */}
-                {!lockExpanded && (
+            <div className="flex items-center w-full px-4 py-3 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+              {/* Botón de expandir/colapsar */}
+              {!lockExpanded && (
+                <button
+                  onClick={() => toggleCustomer(data.customerId)}
+                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors mr-2"
+                  aria-label={isExpanded ? "Colapsar" : "Expandir"}
+                >
                   <svg
-                    className={`w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform flex-shrink-0 ${
+                    className={`w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform ${
                       isExpanded ? "rotate-90" : ""
                     }`}
                     fill="none"
@@ -107,8 +104,14 @@ export function ApplicationsList({
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
-                )}
-                
+                </button>
+              )}
+              
+              {/* Link al cliente */}
+              <Link 
+                href={`/customers/${data.customerId}/edit`}
+                className="flex items-center gap-3 flex-1 group hover:bg-blue-50 dark:hover:bg-blue-900/20 -mx-2 px-2 py-1 rounded transition-colors"
+              >
                 <div className="flex-shrink-0 w-8 h-8 rounded-md overflow-hidden bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-sm">
                   {data.customerImage ? (
                     <img 
@@ -120,7 +123,7 @@ export function ApplicationsList({
                     <span>{customerName.charAt(0).toUpperCase()}</span>
                   )}
                 </div>
-                <div className="text-left">
+                <div className="text-left flex-1">
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                     {customerName}
                   </h3>
@@ -128,8 +131,18 @@ export function ApplicationsList({
                     {data.applications.length} aplicación{data.applications.length !== 1 ? 'es' : ''}
                   </p>
                 </div>
-              </div>
-            </button>
+                
+                {/* Icono de navegación */}
+                <svg 
+                  className="w-5 h-5 text-gray-400 dark:text-gray-500 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors flex-shrink-0" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
             
             {/* Lista de aplicaciones agrupadas por entorno */}
             {isExpanded && (

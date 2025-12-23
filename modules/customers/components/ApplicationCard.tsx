@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { InstalledAppWithEnvironment } from "@/modules/customers/types";
 
 interface ApplicationCardProps {
@@ -23,7 +24,10 @@ export function ApplicationCard({ application }: ApplicationCardProps) {
   };
 
   return (
-    <div className="group relative inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-blue-400 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md">
+    <Link 
+      href={`/applications/${application.id}`}
+      className="group relative inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all shadow-sm hover:shadow-md cursor-pointer"
+    >
       {/* Información básica */}
       <div className="flex flex-col gap-1 min-w-0 flex-1">
         {/* Header: Nombre (izquierda) + PublishedAs (derecha) */}
@@ -47,66 +51,15 @@ export function ApplicationCard({ application }: ApplicationCardProps) {
         </div>
       </div>
       
-      {/* Tooltip con información detallada */}
-      <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-80 p-4 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-2xl pointer-events-none z-[9999]">
-        <div className="space-y-2 text-xs">
-          {/* Nombre */}
-          <div className="font-semibold text-base text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
-            {application.name}
-          </div>
-          
-          {/* Publisher */}
-          <div className="flex justify-between items-center">
-            <span className="text-gray-500 dark:text-gray-400">Publisher:</span>
-            <span className="text-gray-900 dark:text-white font-medium">{application.publisher}</span>
-          </div>
-          
-          {/* Version */}
-          <div className="flex justify-between items-center">
-            <span className="text-gray-500 dark:text-gray-400">Version:</span>
-            <span className="text-gray-900 dark:text-white font-mono">{application.version}</span>
-          </div>
-          
-          {/* Tipo */}
-          <div className="flex justify-between items-center">
-            <span className="text-gray-500 dark:text-gray-400">Tipo:</span>
-            <span className={`text-[10px] px-2 py-1 rounded font-medium ${getTypeBadgeColor(application.publishedAs)}`}>
-              {application.publishedAs}
-            </span>
-          </div>
-          
-          {/* Separador */}
-          <div className="border-t border-gray-200 dark:border-gray-700 my-2"></div>
-          
-          {/* Customer */}
-          <div className="flex justify-between items-center">
-            <span className="text-gray-500 dark:text-gray-400">Cliente:</span>
-            <span className="text-gray-900 dark:text-white font-medium">{application.customerName}</span>
-          </div>
-          
-          {/* Environment */}
-          <div className="flex justify-between items-center">
-            <span className="text-gray-500 dark:text-gray-400">Entorno:</span>
-            <span className="text-gray-900 dark:text-white font-medium">{application.environmentName}</span>
-          </div>
-          
-          {/* Environment Type */}
-          {application.environmentType && (
-            <div className="flex justify-between items-center">
-              <span className="text-gray-500 dark:text-gray-400">Tipo Entorno:</span>
-              <span className="text-gray-900 dark:text-white">{application.environmentType}</span>
-            </div>
-          )}
-          
-          {/* App ID */}
-          <div className="flex justify-between items-start">
-            <span className="text-gray-500 dark:text-gray-400">ID:</span>
-            <span className="text-gray-900 dark:text-white font-mono text-[10px] break-all text-right max-w-[200px]">
-              {application.id}
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
+      {/* Icono de navegación */}
+      <svg 
+        className="w-5 h-5 text-gray-400 dark:text-gray-500 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors flex-shrink-0" 
+        fill="none" 
+        stroke="currentColor" 
+        viewBox="0 0 24 24"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+      </svg>
+    </Link>
   );
 }
