@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { GitHubRepository } from "@/types/github";
 import { dataCache, CACHE_KEYS } from "../../shared/utils/cache";
 
@@ -16,6 +17,7 @@ interface UseReposReturn {
  * Hook para gestionar la carga de repositorios desde la API de GitHub
  */
 export function useRepos(): UseReposReturn {
+  const { update: updateSession } = useSession();
   const [repos, setRepos] = useState<GitHubRepository[]>(() => {
     // Intentar cargar desde cache al inicializar
     return dataCache.get<GitHubRepository[]>(CACHE_KEYS.REPOS) || [];
@@ -53,9 +55,19 @@ export function useRepos(): UseReposReturn {
       }
 
       const data = await res.json();
-      setRepos(data);
+      
+      // Si la respuesta incluye un avatar actualizado, actualizar la sesión
+      if (data.githubAvatar !== undefined) {
+        await updateSession({ 
+          image: data.githubAvatar 
+        });
+      }
+      
+      // La respuesta ahora incluye { repos, githubAvatar }
+      const repositories = data.repos || data;
+      setRepos(repositories);
       // Guardar en cache
-      dataCache.set(CACHE_KEYS.REPOS, data);
+      dataCache.set(CACHE_KEYS.REPOS, repositories);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {

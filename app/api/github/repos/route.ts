@@ -32,37 +32,36 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Obtener y actualizar la foto de perfil de GitHub en segundo plano
-    // No esperamos ni bloqueamos la respuesta de repos
-    (async () => {
-      try {
-        const githubUserResponse = await fetch("https://api.github.com/user", {
-          headers: {
-            Authorization: `Bearer ${user.githubToken}`,
-            Accept: "application/vnd.github.v3+json",
-          },
-        });
+    // Obtener y actualizar la foto de perfil de GitHub de forma síncrona
+    let updatedAvatar = user.githubAvatar;
+    try {
+      const githubUserResponse = await fetch("https://api.github.com/user", {
+        headers: {
+          Authorization: `Bearer ${user.githubToken}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      });
 
-        if (githubUserResponse.ok) {
-          const githubUser = await githubUserResponse.json();
-          const newAvatar = githubUser.avatar_url || null;
+      if (githubUserResponse.ok) {
+        const githubUser = await githubUserResponse.json();
+        const newAvatar = githubUser.avatar_url || null;
 
-          // Solo actualizar si el avatar ha cambiado
-          if (newAvatar !== user.githubAvatar) {
-            await prisma.user.update({
-              where: { id: user.id },
-              data: { githubAvatar: newAvatar },
-            });
-          }
+        // Solo actualizar si el avatar ha cambiado
+        if (newAvatar !== user.githubAvatar) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { githubAvatar: newAvatar },
+          });
+          updatedAvatar = newAvatar;
         }
-      } catch (err) {
-        console.warn("Error actualizando avatar de GitHub:", err);
-        // No hacer nada si falla, es una actualización en segundo plano
       }
-    })();
+    } catch (err) {
+      console.warn("Error actualizando avatar de GitHub:", err);
+      // Continuar con la obtención de repos aunque falle el avatar
+    }
 
     const repos = await getUserRepos(user.githubToken);
-    return NextResponse.json(repos);
+    return NextResponse.json({ repos, githubAvatar: updatedAvatar });
   } catch (error) {
     console.error("Error fetching repos:", error);
     return NextResponse.json(
