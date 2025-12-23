@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import type { InstalledAppWithEnvironment } from "@/modules/customers/types";
+import { isSameMajorMinor } from "@/modules/applications/utils/versionComparison";
 
 interface ApplicationCardProps {
   application: InstalledAppWithEnvironment;
+  latestVersion?: string; // Versión más reciente de la aplicación para comparar
 }
 
-export function ApplicationCard({ application }: ApplicationCardProps) {
+export function ApplicationCard({ application, latestVersion }: ApplicationCardProps) {
   // Badge de tipo de aplicación (Global=Verde, Tenant=Azul, Dev=Rojo)
   const getTypeBadgeColor = (publishedAs: string) => {
     const typeLower = publishedAs.toLowerCase();
@@ -23,11 +25,28 @@ export function ApplicationCard({ application }: ApplicationCardProps) {
     return "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300";
   };
 
+  // Verificar si la instalación está desactualizada
+  const isOutdated = latestVersion && application.version && 
+    !isSameMajorMinor(application.version, latestVersion);
+
   return (
     <Link 
       href={`/applications/${application.id}`}
-      className="group relative inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all shadow-sm hover:shadow-md cursor-pointer"
+      className={`group relative inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 border rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all shadow-sm hover:shadow-md cursor-pointer ${
+        isOutdated 
+          ? 'border-orange-300 dark:border-orange-600 hover:border-orange-400 dark:hover:border-orange-500' 
+          : 'border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500'
+      }`}
     >
+      {/* Badge de "Desactualizada" si aplica */}
+      {isOutdated && (
+        <div className="absolute -top-2 -right-2 flex items-center gap-1 px-2 py-0.5 bg-orange-500 text-white text-[10px] font-semibold rounded-full shadow-md">
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          Desactualizada
+        </div>
+      )}
       {/* Información básica */}
       <div className="flex flex-col gap-1 min-w-0 flex-1">
         {/* Header: Nombre (izquierda) + PublishedAs (derecha) */}

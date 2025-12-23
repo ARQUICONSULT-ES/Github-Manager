@@ -9,6 +9,9 @@ export interface Application {
   logoBase64?: string | null;
   createdAt: string;
   updatedAt: string;
+  // Campos adicionales opcionales para vistas enriquecidas
+  totalInstallations?: number;
+  outdatedInstallations?: number;
 }
 
 export interface ApplicationFormData {

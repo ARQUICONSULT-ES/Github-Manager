@@ -9,12 +9,14 @@ interface ApplicationsListProps {
   applications: InstalledAppWithEnvironment[];
   isLoading?: boolean;
   lockExpanded?: boolean; // Si es true, deshabilita el colapsar/expandir y mantiene todo expandido
+  latestVersions?: Record<string, string>; // Map de appId -> latestVersion para mostrar si está desactualizada
 }
 
 export function ApplicationsList({ 
   applications, 
   isLoading = false,
   lockExpanded = false,
+  latestVersions = {},
 }: ApplicationsListProps) {
   // Agrupar aplicaciones por cliente para obtener todos los customerIds
   const groupedByCustomer = applications.reduce((acc, app) => {
@@ -220,7 +222,8 @@ export function ApplicationsList({
                         {envData.applications.map((app) => (
                           <ApplicationCard 
                             key={`${app.tenantId}-${app.environmentName}-${app.id}`} 
-                            application={app} 
+                            application={app}
+                            latestVersion={latestVersions[app.id]}
                           />
                         ))}
                       </div>

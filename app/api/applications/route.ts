@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getUserPermissions } from "@/lib/auth-permissions";
+import { countOutdatedInstallations } from "@/modules/applications/utils/versionComparison";
 
 /**
  * GET /api/applications
  * Obtiene todas las aplicaciones del catálogo (tabla Application)
+ * Enriquece con contadores de instalaciones totales y obsoletas
  */
 export async function GET(request: NextRequest) {
   try {
@@ -17,8 +19,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Los admins ven todas las aplicaciones
-    // Los usuarios también pueden ver el catálogo completo de aplicaciones
+    // Obtener aplicaciones
     const applications = await prisma.application.findMany({
       orderBy: [
         { publisher: "asc" },
@@ -26,7 +27,30 @@ export async function GET(request: NextRequest) {
       ],
     });
 
-    return NextResponse.json(applications);
+    // Enriquecer con contadores de instalaciones
+    const enrichedApplications = await Promise.all(
+      applications.map(async (app) => {
+        // Obtener todas las instalaciones de esta aplicación
+        const installations = await prisma.installedApp.findMany({
+          where: { id: app.id },
+          select: { version: true },
+        });
+
+        const totalInstallations = installations.length;
+        const outdatedInstallations = countOutdatedInstallations(
+          app.latestReleaseVersion,
+          installations
+        );
+
+        return {
+          ...app,
+          totalInstallations,
+          outdatedInstallations,
+        };
+      })
+    );
+
+    return NextResponse.json(enrichedApplications);
   } catch (error) {
     console.error("Error fetching applications:", error);
     return NextResponse.json(

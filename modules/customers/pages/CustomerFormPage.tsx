@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { Customer, Tenant } from "@/modules/customers/types";
+import type { Application } from "@/modules/applications/types";
 import ConfirmationModal from "@/modules/customers/components/ConfirmationModal";
 import TenantFormModal from "@/modules/customers/components/TenantFormModal";
 import { useCustomerTenants } from "@/modules/customers/hooks/useCustomerTenants";
@@ -62,6 +63,34 @@ export function CustomerFormPage({ customerId }: CustomerFormPageProps) {
 
   // Estado para filtro de aplicaciones de Microsoft
   const [hideMicrosoftApps, setHideMicrosoftApps] = useState(true);
+
+  // Estado para almacenar las versiones más recientes de las aplicaciones
+  const [latestVersions, setLatestVersions] = useState<Record<string, string>>({});
+
+  // Cargar aplicaciones del catálogo para obtener las últimas versiones
+  useEffect(() => {
+    const fetchApplications = async () => {
+      try {
+        const response = await fetch('/api/applications');
+        if (response.ok) {
+          const applications: Application[] = await response.json();
+          const versionsMap: Record<string, string> = {};
+          applications.forEach(app => {
+            if (app.latestReleaseVersion) {
+              versionsMap[app.id] = app.latestReleaseVersion;
+            }
+          });
+          setLatestVersions(versionsMap);
+        }
+      } catch (error) {
+        console.error('Error fetching applications:', error);
+      }
+    };
+
+    if (customerId) {
+      fetchApplications();
+    }
+  }, [customerId]);
 
   // Filtrar y ordenar entornos
   const filteredAndSortedEnvironments = environments
@@ -686,7 +715,11 @@ export function CustomerFormPage({ customerId }: CustomerFormPageProps) {
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Desactiva el filtro para ver las aplicaciones de Microsoft</p>
               </div>
             ) : (
-              <ApplicationsList applications={filteredInstalledApps} lockExpanded={true} />
+              <ApplicationsList 
+                applications={filteredInstalledApps} 
+                lockExpanded={true}
+                latestVersions={latestVersions}
+              />
             )}
           </div>
         </div>

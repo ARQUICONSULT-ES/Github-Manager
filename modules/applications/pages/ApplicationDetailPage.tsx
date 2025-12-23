@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Application } from "@/modules/applications/types";
 import { useApplicationInstallations } from "@/modules/applications/hooks/useApplicationInstallations";
 import { ApplicationsList } from "@/modules/customers/components/ApplicationsList";
+import { countOutdatedInstallations } from "@/modules/applications/utils/versionComparison";
 
 interface ApplicationDetailPageProps {
   applicationId: string;
@@ -237,6 +238,13 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
                   {installations.filter(i => i.environmentStatus === "Active").length}
                 </p>
               </div>
+
+              <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 sm:p-4">
+                <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">Instalaciones desactualizadas</p>
+                <p className="text-2xl sm:text-3xl font-bold text-orange-600 dark:text-orange-400">
+                  {countOutdatedInstallations(application.latestReleaseVersion, installations)}
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -284,6 +292,7 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
             applications={installations}
             isLoading={installationsLoading}
             lockExpanded={true}
+            latestVersions={application.latestReleaseVersion ? { [application.id]: application.latestReleaseVersion } : {}}
           />
         </div>
       </div>
