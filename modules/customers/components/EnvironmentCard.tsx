@@ -29,7 +29,7 @@ export default function EnvironmentCard({ environment }: EnvironmentCardProps) {
     if (environment.type) {
       params.set('filterEnvType', environment.type);
     }
-    router.push(`/applications?${params.toString()}`);
+    router.push(`/installed-apps?${params.toString()}`);
   };
   
   return (

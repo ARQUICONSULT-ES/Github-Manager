@@ -1,14 +1,15 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef } from "react";
+import { useRouter } from "next/navigation";
 import { CustomerList } from "@/modules/customers/components/CustomerList";
 import { CustomerListSkeleton } from "@/modules/customers/components/CustomerCardSkeleton";
-import CustomerFormModal from "@/modules/customers/components/CustomerFormModal";
 import type { Customer, CustomerListHandle } from "@/modules/customers/types";
 import { useCustomers } from "@/modules/customers/hooks/useCustomers";
 import { useCustomerFilter } from "@/modules/customers/hooks/useCustomerFilter";
 
 export function CustomersPage() {
+  const router = useRouter();
   const { customers, isLoading, isRefreshing, error, refreshCustomers } = useCustomers();
   const {
     filteredItems,
@@ -17,30 +18,17 @@ export function CustomersPage() {
   } = useCustomerFilter(customers);
   
   const customerListRef = useRef<CustomerListHandle>(null);
-  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | undefined>(undefined);
 
   const handleRefresh = async () => {
     await refreshCustomers();
   };
 
   const handleCreateCustomer = () => {
-    setSelectedCustomer(undefined);
-    setIsCustomerModalOpen(true);
+    router.push("/customers/new");
   };
 
   const handleEditCustomer = (customer: Customer) => {
-    setSelectedCustomer(customer);
-    setIsCustomerModalOpen(true);
-  };
-
-  const handleCloseCustomerModal = () => {
-    setIsCustomerModalOpen(false);
-    setSelectedCustomer(undefined);
-  };
-
-  const handleSaveCustomer = async () => {
-    await refreshCustomers();
+    router.push(`/customers/${customer.id}/edit`);
   };
 
   if (error) {
@@ -142,14 +130,6 @@ export function CustomersPage() {
           Añadir cliente
         </button>
       </div>
-
-      {/* Modal */}
-      <CustomerFormModal
-        isOpen={isCustomerModalOpen}
-        onClose={handleCloseCustomerModal}
-        customer={selectedCustomer}
-        onSave={handleSaveCustomer}
-      />
 
       {/* Contenido */}
       {isLoading ? (

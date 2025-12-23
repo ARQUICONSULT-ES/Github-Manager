@@ -7,11 +7,13 @@ import { ApplicationCard } from "./ApplicationCard";
 interface ApplicationsListProps {
   applications: InstalledAppWithEnvironment[];
   isLoading?: boolean;
+  lockExpanded?: boolean; // Si es true, deshabilita el colapsar/expandir y mantiene todo expandido
 }
 
 export function ApplicationsList({ 
   applications, 
   isLoading = false,
+  lockExpanded = false,
 }: ApplicationsListProps) {
   // Agrupar aplicaciones por cliente para obtener todos los customerIds
   const groupedByCustomer = applications.reduce((acc, app) => {
@@ -78,27 +80,34 @@ export function ApplicationsList({
   return (
     <div className="space-y-6">
       {Object.entries(groupedByCustomer).map(([customerName, data]) => {
-        const isExpanded = expandedCustomers.has(data.customerId);
+        const isExpanded = lockExpanded || expandedCustomers.has(data.customerId);
         
         return (
           <div key={data.customerId} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
             {/* Header del cliente */}
             <button
-              onClick={() => toggleCustomer(data.customerId)}
-              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors cursor-pointer"
+              onClick={() => !lockExpanded && toggleCustomer(data.customerId)}
+              disabled={lockExpanded}
+              className={`w-full px-4 py-3 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 transition-colors ${
+                lockExpanded 
+                  ? 'cursor-default' 
+                  : 'hover:bg-gray-100 dark:hover:bg-gray-900 cursor-pointer'
+              }`}
             >
               <div className="flex items-center gap-3">
-                {/* Icono de expandir/colapsar */}
-                <svg
-                  className={`w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform flex-shrink-0 ${
-                    isExpanded ? "rotate-90" : ""
-                  }`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
+                {/* Icono de expandir/colapsar (oculto si está bloqueado) */}
+                {!lockExpanded && (
+                  <svg
+                    className={`w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform flex-shrink-0 ${
+                      isExpanded ? "rotate-90" : ""
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                )}
                 
                 <div className="flex-shrink-0 w-8 h-8 rounded-md overflow-hidden bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-sm">
                   {data.customerImage ? (
@@ -163,7 +172,7 @@ export function ApplicationsList({
                         <div key={envKey}>
                           {/* Header del entorno */}
                           <div className="mb-2 flex items-center gap-2">
-                            <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                            <h4 className="text-sm font-bold text-gray-900 dark:text-white">
                               {envData.environmentName}
                             </h4>
                             {envData.environmentType && (

@@ -25,23 +25,25 @@ export function ApplicationCard({ application }: ApplicationCardProps) {
   return (
     <div className="group relative inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-blue-400 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md isolate">
       {/* Información básica */}
-      <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-        {/* Nombre de la aplicación */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+      <div className="flex flex-col gap-1 min-w-0 flex-1">
+        {/* Header: Nombre (izquierda) + PublishedAs (derecha) */}
+        <div className="flex items-start justify-between gap-2">
+          <span className="text-sm font-medium text-gray-900 dark:text-white truncate flex-1">
             {application.name}
+          </span>
+          <span className={`text-[10px] px-2 py-0.5 rounded font-medium whitespace-nowrap flex-shrink-0 ${getTypeBadgeColor(application.publishedAs)}`}>
+            {application.publishedAs}
           </span>
         </div>
         
-        {/* Publisher y Version */}
-        <div className="flex items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400 min-w-0">
-          <span className="truncate flex-1" title={application.publisher}>{application.publisher}</span>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <span className={`text-[10px] px-2 py-1 rounded font-medium ${getTypeBadgeColor(application.publishedAs)}`}>
-              {application.publishedAs}
-            </span>
-            <span className="font-mono">{application.version}</span>
-          </div>
+        {/* Footer: Publisher (izquierda) + Version (derecha) */}
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs text-gray-500 dark:text-gray-400 truncate flex-1" title={application.publisher}>
+            {application.publisher}
+          </span>
+          <span className="text-xs font-mono text-gray-600 dark:text-gray-400 flex-shrink-0">
+            {application.version}
+          </span>
         </div>
       </div>
       
