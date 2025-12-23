@@ -8209,6 +8209,7 @@ export namespace Prisma {
     name: string | null
     publisher: string | null
     githubRepoName: string | null
+    logoBase64: string | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -8218,6 +8219,7 @@ export namespace Prisma {
     name: string | null
     publisher: string | null
     githubRepoName: string | null
+    logoBase64: string | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -8227,6 +8229,7 @@ export namespace Prisma {
     name: number
     publisher: number
     githubRepoName: number
+    logoBase64: number
     createdAt: number
     updatedAt: number
     _all: number
@@ -8238,6 +8241,7 @@ export namespace Prisma {
     name?: true
     publisher?: true
     githubRepoName?: true
+    logoBase64?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -8247,6 +8251,7 @@ export namespace Prisma {
     name?: true
     publisher?: true
     githubRepoName?: true
+    logoBase64?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -8256,6 +8261,7 @@ export namespace Prisma {
     name?: true
     publisher?: true
     githubRepoName?: true
+    logoBase64?: true
     createdAt?: true
     updatedAt?: true
     _all?: true
@@ -8338,6 +8344,7 @@ export namespace Prisma {
     name: string
     publisher: string
     githubRepoName: string
+    logoBase64: string | null
     createdAt: Date
     updatedAt: Date
     _count: ApplicationCountAggregateOutputType | null
@@ -8364,6 +8371,7 @@ export namespace Prisma {
     name?: boolean
     publisher?: boolean
     githubRepoName?: boolean
+    logoBase64?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }, ExtArgs["result"]["application"]>
@@ -8373,6 +8381,7 @@ export namespace Prisma {
     name?: boolean
     publisher?: boolean
     githubRepoName?: boolean
+    logoBase64?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }, ExtArgs["result"]["application"]>
@@ -8382,6 +8391,7 @@ export namespace Prisma {
     name?: boolean
     publisher?: boolean
     githubRepoName?: boolean
+    logoBase64?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }, ExtArgs["result"]["application"]>
@@ -8391,11 +8401,12 @@ export namespace Prisma {
     name?: boolean
     publisher?: boolean
     githubRepoName?: boolean
+    logoBase64?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type ApplicationOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "publisher" | "githubRepoName" | "createdAt" | "updatedAt", ExtArgs["result"]["application"]>
+  export type ApplicationOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "publisher" | "githubRepoName" | "logoBase64" | "createdAt" | "updatedAt", ExtArgs["result"]["application"]>
 
   export type $ApplicationPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "Application"
@@ -8405,6 +8416,7 @@ export namespace Prisma {
       name: string
       publisher: string
       githubRepoName: string
+      logoBase64: string | null
       createdAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["application"]>
@@ -8834,6 +8846,7 @@ export namespace Prisma {
     readonly name: FieldRef<"Application", 'String'>
     readonly publisher: FieldRef<"Application", 'String'>
     readonly githubRepoName: FieldRef<"Application", 'String'>
+    readonly logoBase64: FieldRef<"Application", 'String'>
     readonly createdAt: FieldRef<"Application", 'DateTime'>
     readonly updatedAt: FieldRef<"Application", 'DateTime'>
   }
@@ -9300,6 +9313,7 @@ export namespace Prisma {
     name: 'name',
     publisher: 'publisher',
     githubRepoName: 'githubRepoName',
+    logoBase64: 'logoBase64',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
   };
@@ -9813,6 +9827,7 @@ export namespace Prisma {
     name?: StringFilter<"Application"> | string
     publisher?: StringFilter<"Application"> | string
     githubRepoName?: StringFilter<"Application"> | string
+    logoBase64?: StringNullableFilter<"Application"> | string | null
     createdAt?: DateTimeFilter<"Application"> | Date | string
     updatedAt?: DateTimeFilter<"Application"> | Date | string
   }
@@ -9822,6 +9837,7 @@ export namespace Prisma {
     name?: SortOrder
     publisher?: SortOrder
     githubRepoName?: SortOrder
+    logoBase64?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -9834,6 +9850,7 @@ export namespace Prisma {
     name?: StringFilter<"Application"> | string
     publisher?: StringFilter<"Application"> | string
     githubRepoName?: StringFilter<"Application"> | string
+    logoBase64?: StringNullableFilter<"Application"> | string | null
     createdAt?: DateTimeFilter<"Application"> | Date | string
     updatedAt?: DateTimeFilter<"Application"> | Date | string
   }, "id">
@@ -9843,6 +9860,7 @@ export namespace Prisma {
     name?: SortOrder
     publisher?: SortOrder
     githubRepoName?: SortOrder
+    logoBase64?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     _count?: ApplicationCountOrderByAggregateInput
@@ -9858,6 +9876,7 @@ export namespace Prisma {
     name?: StringWithAggregatesFilter<"Application"> | string
     publisher?: StringWithAggregatesFilter<"Application"> | string
     githubRepoName?: StringWithAggregatesFilter<"Application"> | string
+    logoBase64?: StringNullableWithAggregatesFilter<"Application"> | string | null
     createdAt?: DateTimeWithAggregatesFilter<"Application"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Application"> | Date | string
   }
@@ -10302,19 +10321,21 @@ export namespace Prisma {
   }
 
   export type ApplicationCreateInput = {
-    id?: string
+    id: string
     name: string
     publisher: string
     githubRepoName: string
+    logoBase64?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
 
   export type ApplicationUncheckedCreateInput = {
-    id?: string
+    id: string
     name: string
     publisher: string
     githubRepoName: string
+    logoBase64?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -10324,6 +10345,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     publisher?: StringFieldUpdateOperationsInput | string
     githubRepoName?: StringFieldUpdateOperationsInput | string
+    logoBase64?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -10333,15 +10355,17 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     publisher?: StringFieldUpdateOperationsInput | string
     githubRepoName?: StringFieldUpdateOperationsInput | string
+    logoBase64?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type ApplicationCreateManyInput = {
-    id?: string
+    id: string
     name: string
     publisher: string
     githubRepoName: string
+    logoBase64?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -10351,6 +10375,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     publisher?: StringFieldUpdateOperationsInput | string
     githubRepoName?: StringFieldUpdateOperationsInput | string
+    logoBase64?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -10360,6 +10385,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     publisher?: StringFieldUpdateOperationsInput | string
     githubRepoName?: StringFieldUpdateOperationsInput | string
+    logoBase64?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -10820,6 +10846,7 @@ export namespace Prisma {
     name?: SortOrder
     publisher?: SortOrder
     githubRepoName?: SortOrder
+    logoBase64?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -10829,6 +10856,7 @@ export namespace Prisma {
     name?: SortOrder
     publisher?: SortOrder
     githubRepoName?: SortOrder
+    logoBase64?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -10838,6 +10866,7 @@ export namespace Prisma {
     name?: SortOrder
     publisher?: SortOrder
     githubRepoName?: SortOrder
+    logoBase64?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }

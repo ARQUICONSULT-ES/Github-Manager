@@ -3,6 +3,7 @@ export interface Application {
   name: string;
   publisher: string;
   githubRepoName: string;
+  logoBase64?: string | null;
   createdAt: string;
   updatedAt: string;
 }

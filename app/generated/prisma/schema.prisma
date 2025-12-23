@@ -115,10 +115,11 @@ model InstalledApp {
 
 // Tabla de Aplicaciones
 model Application {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id             String   @id @db.Uuid
   name           String   @db.VarChar(255)
   publisher      String   @db.VarChar(255)
   githubRepoName String   @map("github_repo_name") @db.VarChar(255)
+  logoBase64     String?  @map("logo_base64") @db.Text
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

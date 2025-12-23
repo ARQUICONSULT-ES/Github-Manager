@@ -42,8 +42,8 @@ export function useApplicationForm({ application, onSuccess }: UseApplicationFor
 
     try {
       const url = application
-        ? `/api/app-catalog/${application.id}`
-        : "/api/app-catalog";
+        ? `/api/applications/${application.id}`
+        : "/api/applications";
       
       const method = application ? "PUT" : "POST";
 
@@ -76,7 +76,7 @@ export function useApplicationForm({ application, onSuccess }: UseApplicationFor
     setError(null);
 
     try {
-      const response = await fetch(`/api/app-catalog/${application.id}`, {
+      const response = await fetch(`/api/applications/${application.id}`, {
         method: "DELETE",
       });
 
