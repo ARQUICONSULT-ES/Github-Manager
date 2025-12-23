@@ -33,6 +33,7 @@ body {
 /* Asegurar que los inputs hereden el color correcto */
 input, textarea, select {
   color: #111827; /* gray-900 */
+  font-size: 16px; /* Prevenir zoom en móviles */
 }
 
 .dark input, .dark textarea, .dark select {
