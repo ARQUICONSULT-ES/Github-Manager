@@ -17,7 +17,9 @@ interface UseReposReturn {
  * Hook para gestionar la carga de repositorios desde la API de GitHub
  */
 export function useRepos(): UseReposReturn {
-  const { update: updateSession } = useSession();
+  const { data: session, update: updateSession } = useSession();
+  // Guardamos el avatar actual de la sesión para comparar y evitar bucles
+  const currentSessionImage = session?.user?.image;
   const [repos, setRepos] = useState<GitHubRepository[]>(() => {
     // Intentar cargar desde cache al inicializar
     return dataCache.get<GitHubRepository[]>(CACHE_KEYS.REPOS) || [];
@@ -56,8 +58,9 @@ export function useRepos(): UseReposReturn {
 
       const data = await res.json();
       
-      // Si la respuesta incluye un avatar actualizado, actualizar la sesión
-      if (data.githubAvatar !== undefined) {
+      // Solo actualizar la sesión si el avatar ha cambiado realmente
+      // Esto evita el bucle infinito de re-render
+      if (data.githubAvatar !== undefined && data.githubAvatar !== currentSessionImage) {
         await updateSession({ 
           image: data.githubAvatar 
         });
