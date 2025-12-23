@@ -604,7 +604,7 @@ export function CustomerFormPage({ customerId }: CustomerFormPageProps) {
 
       {/* Sección de Instalaciones - Solo en modo edición */}
       {isEditMode && (
-        <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+        <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-visible">
           <div className="px-5 py-3 border-b border-gray-700 bg-gray-800/50 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <h2 className="text-base font-semibold text-white flex items-center gap-2">

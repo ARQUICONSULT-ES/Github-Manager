@@ -23,7 +23,7 @@ export function ApplicationCard({ application }: ApplicationCardProps) {
   };
 
   return (
-    <div className="group relative inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-blue-400 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md isolate">
+    <div className="group relative inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-blue-400 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md">
       {/* Información básica */}
       <div className="flex flex-col gap-1 min-w-0 flex-1">
         {/* Header: Nombre (izquierda) + PublishedAs (derecha) */}
@@ -48,7 +48,7 @@ export function ApplicationCard({ application }: ApplicationCardProps) {
       </div>
       
       {/* Tooltip con información detallada */}
-      <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-80 p-4 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-2xl pointer-events-none" style={{ zIndex: 9999 }}>
+      <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-80 p-4 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-2xl pointer-events-none z-[9999]">
         <div className="space-y-2 text-xs">
           {/* Nombre */}
           <div className="font-semibold text-base text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
