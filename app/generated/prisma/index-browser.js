@@ -186,6 +186,9 @@ exports.Prisma.ApplicationScalarFieldEnum = {
   name: 'name',
   publisher: 'publisher',
   githubRepoName: 'githubRepoName',
+  githubUrl: 'githubUrl',
+  latestReleaseVersion: 'latestReleaseVersion',
+  latestReleaseDate: 'latestReleaseDate',
   logoBase64: 'logoBase64',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'

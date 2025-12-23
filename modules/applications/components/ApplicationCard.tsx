@@ -11,47 +11,62 @@ export default function ApplicationCard({ application, onClick }: ApplicationCar
   return (
     <div
       onClick={() => onClick(application)}
-      className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:shadow-md hover:border-blue-300 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-600"
+      className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:shadow-md hover:border-blue-300 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-600"
     >
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 mb-4">
+      <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex-1 min-w-0">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate">
             {application.name}
           </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+          <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
             {application.publisher}
           </p>
         </div>
-        <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center overflow-hidden">
-          {application.logoBase64 ? (
-            <img 
-              src={application.logoBase64} 
-              alt={`${application.name} logo`}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <svg
-              className="w-6 h-6 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+        <div className="flex items-center gap-2">
+          <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center overflow-hidden">
+            {application.logoBase64 ? (
+              <img 
+                src={application.logoBase64} 
+                alt={`${application.name} logo`}
+                className="w-full h-full object-cover"
               />
-            </svg>
-          )}
+            ) : (
+              <svg
+                className="w-5 h-5 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                />
+              </svg>
+            )}
+          </div>
+          <svg
+            className="w-4 h-4 text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
         </div>
       </div>
 
       {/* GitHub Repo */}
-      <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
+      <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400 mb-2">
         <svg
-          className="w-4 h-4 flex-shrink-0"
+          className="w-3.5 h-3.5 flex-shrink-0"
           fill="currentColor"
           viewBox="0 0 24 24"
         >
@@ -61,34 +76,43 @@ export default function ApplicationCard({ application, onClick }: ApplicationCar
             clipRule="evenodd"
           />
         </svg>
-        <span className="truncate font-mono text-xs">
-          {application.githubRepoName}
-        </span>
+        {application.githubUrl ? (
+          <a
+            href={application.githubUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="truncate font-mono text-xs hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors"
+          >
+            {application.githubRepoName}
+          </a>
+        ) : (
+          <span className="truncate font-mono text-xs">
+            {application.githubRepoName}
+          </span>
+        )}
       </div>
 
-      {/* Footer */}
-      <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700">
-        <span className="text-xs text-gray-500 dark:text-gray-400">
-          {new Date(application.updatedAt).toLocaleDateString('es-ES', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-          })}
-        </span>
-        <svg
-          className="w-5 h-5 text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 5l7 7-7 7"
-          />
-        </svg>
-      </div>
+      {/* Latest Release */}
+      {application.latestReleaseVersion && (
+        <div className="flex items-center gap-2 text-sm mb-2">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-medium">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+            {application.latestReleaseVersion}
+          </span>
+          {application.latestReleaseDate && (
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {new Date(application.latestReleaseDate).toLocaleDateString('es-ES', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+              })}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

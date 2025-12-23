@@ -12,6 +12,7 @@ interface AppJsonContent {
   version?: string;
   brief?: string;
   description?: string;
+  logo?: string;
 }
 
 /**
@@ -91,8 +92,19 @@ export async function POST(request: NextRequest) {
           githubToken,
           repo.owner.login,
           repo.name,
-          repo.default_branch
+          repo.default_branch,
+          appJsonContent
         );
+
+        // Obtener la última release del repositorio
+        const latestRelease = await getLatestRelease(
+          githubToken,
+          repo.owner.login,
+          repo.name
+        );
+
+        // Construir la URL del repositorio
+        const githubUrl = repo.html_url;
 
         // 3. Crear o actualizar la aplicación en la base de datos
         const existingApp = await prisma.application.findUnique({
@@ -107,6 +119,9 @@ export async function POST(request: NextRequest) {
               name: appJsonContent.name,
               publisher: appJsonContent.publisher,
               githubRepoName: repo.name,
+              githubUrl: githubUrl,
+              latestReleaseVersion: latestRelease?.version,
+              latestReleaseDate: latestRelease?.date,
               logoBase64: logoBase64 || existingApp.logoBase64, // Mantener logo existente si no se encuentra uno nuevo
               updatedAt: new Date(),
             },
@@ -121,6 +136,9 @@ export async function POST(request: NextRequest) {
               name: appJsonContent.name,
               publisher: appJsonContent.publisher,
               githubRepoName: repo.name,
+              githubUrl: githubUrl,
+              latestReleaseVersion: latestRelease?.version,
+              latestReleaseDate: latestRelease?.date,
               logoBase64: logoBase64,
             },
           });
@@ -166,6 +184,7 @@ async function getAllUserRepos(token: string): Promise<Array<{
   full_name: string;
   owner: { login: string };
   default_branch: string;
+  html_url: string;
 }>> {
   const allRepos = [];
   let page = 1;
@@ -258,89 +277,112 @@ async function getAppJsonFromRepo(
 
 /**
  * Intenta obtener el logo de la aplicación desde el repositorio
- * Busca la primera imagen en /src/img/ o /app/src/img/
+ * Solo utiliza el valor del campo "logo" en app.json
+ * Si no hay valor, no busca en otras ubicaciones
  */
 async function getAppLogoFromRepo(
   token: string,
   owner: string,
   repo: string,
-  branch: string
+  branch: string,
+  appJsonContent: AppJsonContent
 ): Promise<string | null> {
-  const imagePaths = ["src/img", "app/src/img"];
-  const imageExtensions = [".png", ".jpg", ".jpeg", ".svg", ".gif", ".webp"];
-  
-  for (const path of imagePaths) {
-    try {
-      // Obtener contenido del directorio
-      const res = await fetch(
-        `${GITHUB_API_URL}/repos/${owner}/${repo}/contents/${path}?ref=${branch}`,
-        {
-          headers: {
-            Authorization: `token ${token}`,
-            Accept: "application/vnd.github.v3+json",
-          },
-          cache: "no-store",
-        }
-      );
-
-      if (res.status === 404) {
-        continue; // Intentar con el siguiente path
-      }
-
-      if (!res.ok) {
-        continue;
-      }
-
-      const files = await res.json();
-      
-      // Buscar la primera imagen en el directorio
-      if (Array.isArray(files)) {
-        for (const file of files) {
-          const fileName = file.name.toLowerCase();
-          const isImage = imageExtensions.some(ext => fileName.endsWith(ext));
-          
-          if (isImage && file.type === "file") {
-            // Obtener el contenido del archivo de imagen
-            const imageRes = await fetch(file.url, {
-              headers: {
-                Authorization: `token ${token}`,
-                Accept: "application/vnd.github.v3+json",
-              },
-              cache: "no-store",
-            });
-
-            if (imageRes.ok) {
-              const imageData = await imageRes.json();
-              
-              if (imageData.content) {
-                // El contenido ya viene en base64
-                const base64Content = imageData.content.replace(/\n/g, "");
-                
-                // Determinar el tipo MIME según la extensión
-                let mimeType = "image/png";
-                if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) {
-                  mimeType = "image/jpeg";
-                } else if (fileName.endsWith(".svg")) {
-                  mimeType = "image/svg+xml";
-                } else if (fileName.endsWith(".gif")) {
-                  mimeType = "image/gif";
-                } else if (fileName.endsWith(".webp")) {
-                  mimeType = "image/webp";
-                }
-                
-                const dataUrl = `data:${mimeType};base64,${base64Content}`;
-                console.log(`  ✓ Logo encontrado: ${path}/${file.name}`);
-                return dataUrl;
-              }
-            }
-          }
-        }
-      }
-    } catch (error) {
-      // Continuar con el siguiente path si hay error
-      continue;
-    }
+  // Verificar si app.json especifica una ruta de logo
+  if (!appJsonContent.logo || appJsonContent.logo.trim() === "") {
+    console.log(`  ⊘ No se especificó logo en app.json`);
+    return null;
   }
-  
-  return null; // No se encontró logo
+
+  try {
+    const logoPath = appJsonContent.logo.startsWith("/") 
+      ? appJsonContent.logo.substring(1) 
+      : appJsonContent.logo;
+    
+    console.log(`  → Intentando obtener logo desde app.json: ${logoPath}`);
+    
+    const res = await fetch(
+      `${GITHUB_API_URL}/repos/${owner}/${repo}/contents/${logoPath}?ref=${branch}`,
+      {
+        headers: {
+          Authorization: `token ${token}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+        cache: "no-store",
+      }
+    );
+
+    if (!res.ok) {
+      console.log(`  ⚠ No se pudo obtener logo desde: ${logoPath}`);
+      return null;
+    }
+
+    const fileData = await res.json();
+    
+    if (!fileData.content || fileData.type !== "file") {
+      console.log(`  ⚠ Logo no es un archivo válido: ${logoPath}`);
+      return null;
+    }
+
+    const base64Content = fileData.content.replace(/\n/g, "");
+    
+    // Determinar el tipo MIME según la extensión
+    const fileName = logoPath.toLowerCase();
+    let mimeType = "image/png";
+    if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) {
+      mimeType = "image/jpeg";
+    } else if (fileName.endsWith(".svg")) {
+      mimeType = "image/svg+xml";
+    } else if (fileName.endsWith(".gif")) {
+      mimeType = "image/gif";
+    } else if (fileName.endsWith(".webp")) {
+      mimeType = "image/webp";
+    }
+    
+    const dataUrl = `data:${mimeType};base64,${base64Content}`;
+    console.log(`  ✓ Logo encontrado: ${logoPath}`);
+    return dataUrl;
+  } catch (error) {
+    console.log(`  ⚠ Error obteniendo logo:`, error instanceof Error ? error.message : "Error desconocido");
+    return null;
+  }
+}
+
+/**
+ * Obtiene la información de la última release de un repositorio
+ */
+async function getLatestRelease(
+  token: string,
+  owner: string,
+  repo: string
+): Promise<{ version: string; date: Date } | null> {
+  try {
+    const res = await fetch(
+      `${GITHUB_API_URL}/repos/${owner}/${repo}/releases/latest`,
+      {
+        headers: {
+          Authorization: `token ${token}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+        cache: "no-store",
+      }
+    );
+
+    if (res.status === 404) {
+      return null; // No hay releases
+    }
+
+    if (!res.ok) {
+      return null;
+    }
+
+    const release = await res.json();
+    
+    return {
+      version: release.tag_name || release.name || "Unknown",
+      date: new Date(release.published_at || release.created_at)
+    };
+  } catch (error) {
+    console.error(`Error obteniendo última release de ${owner}/${repo}:`, error);
+    return null;
+  }
 }

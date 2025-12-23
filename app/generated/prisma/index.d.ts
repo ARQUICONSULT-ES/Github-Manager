@@ -8209,6 +8209,9 @@ export namespace Prisma {
     name: string | null
     publisher: string | null
     githubRepoName: string | null
+    githubUrl: string | null
+    latestReleaseVersion: string | null
+    latestReleaseDate: Date | null
     logoBase64: string | null
     createdAt: Date | null
     updatedAt: Date | null
@@ -8219,6 +8222,9 @@ export namespace Prisma {
     name: string | null
     publisher: string | null
     githubRepoName: string | null
+    githubUrl: string | null
+    latestReleaseVersion: string | null
+    latestReleaseDate: Date | null
     logoBase64: string | null
     createdAt: Date | null
     updatedAt: Date | null
@@ -8229,6 +8235,9 @@ export namespace Prisma {
     name: number
     publisher: number
     githubRepoName: number
+    githubUrl: number
+    latestReleaseVersion: number
+    latestReleaseDate: number
     logoBase64: number
     createdAt: number
     updatedAt: number
@@ -8241,6 +8250,9 @@ export namespace Prisma {
     name?: true
     publisher?: true
     githubRepoName?: true
+    githubUrl?: true
+    latestReleaseVersion?: true
+    latestReleaseDate?: true
     logoBase64?: true
     createdAt?: true
     updatedAt?: true
@@ -8251,6 +8263,9 @@ export namespace Prisma {
     name?: true
     publisher?: true
     githubRepoName?: true
+    githubUrl?: true
+    latestReleaseVersion?: true
+    latestReleaseDate?: true
     logoBase64?: true
     createdAt?: true
     updatedAt?: true
@@ -8261,6 +8276,9 @@ export namespace Prisma {
     name?: true
     publisher?: true
     githubRepoName?: true
+    githubUrl?: true
+    latestReleaseVersion?: true
+    latestReleaseDate?: true
     logoBase64?: true
     createdAt?: true
     updatedAt?: true
@@ -8344,6 +8362,9 @@ export namespace Prisma {
     name: string
     publisher: string
     githubRepoName: string
+    githubUrl: string | null
+    latestReleaseVersion: string | null
+    latestReleaseDate: Date | null
     logoBase64: string | null
     createdAt: Date
     updatedAt: Date
@@ -8371,6 +8392,9 @@ export namespace Prisma {
     name?: boolean
     publisher?: boolean
     githubRepoName?: boolean
+    githubUrl?: boolean
+    latestReleaseVersion?: boolean
+    latestReleaseDate?: boolean
     logoBase64?: boolean
     createdAt?: boolean
     updatedAt?: boolean
@@ -8381,6 +8405,9 @@ export namespace Prisma {
     name?: boolean
     publisher?: boolean
     githubRepoName?: boolean
+    githubUrl?: boolean
+    latestReleaseVersion?: boolean
+    latestReleaseDate?: boolean
     logoBase64?: boolean
     createdAt?: boolean
     updatedAt?: boolean
@@ -8391,6 +8418,9 @@ export namespace Prisma {
     name?: boolean
     publisher?: boolean
     githubRepoName?: boolean
+    githubUrl?: boolean
+    latestReleaseVersion?: boolean
+    latestReleaseDate?: boolean
     logoBase64?: boolean
     createdAt?: boolean
     updatedAt?: boolean
@@ -8401,12 +8431,15 @@ export namespace Prisma {
     name?: boolean
     publisher?: boolean
     githubRepoName?: boolean
+    githubUrl?: boolean
+    latestReleaseVersion?: boolean
+    latestReleaseDate?: boolean
     logoBase64?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type ApplicationOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "publisher" | "githubRepoName" | "logoBase64" | "createdAt" | "updatedAt", ExtArgs["result"]["application"]>
+  export type ApplicationOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "publisher" | "githubRepoName" | "githubUrl" | "latestReleaseVersion" | "latestReleaseDate" | "logoBase64" | "createdAt" | "updatedAt", ExtArgs["result"]["application"]>
 
   export type $ApplicationPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "Application"
@@ -8416,6 +8449,9 @@ export namespace Prisma {
       name: string
       publisher: string
       githubRepoName: string
+      githubUrl: string | null
+      latestReleaseVersion: string | null
+      latestReleaseDate: Date | null
       logoBase64: string | null
       createdAt: Date
       updatedAt: Date
@@ -8846,6 +8882,9 @@ export namespace Prisma {
     readonly name: FieldRef<"Application", 'String'>
     readonly publisher: FieldRef<"Application", 'String'>
     readonly githubRepoName: FieldRef<"Application", 'String'>
+    readonly githubUrl: FieldRef<"Application", 'String'>
+    readonly latestReleaseVersion: FieldRef<"Application", 'String'>
+    readonly latestReleaseDate: FieldRef<"Application", 'DateTime'>
     readonly logoBase64: FieldRef<"Application", 'String'>
     readonly createdAt: FieldRef<"Application", 'DateTime'>
     readonly updatedAt: FieldRef<"Application", 'DateTime'>
@@ -9313,6 +9352,9 @@ export namespace Prisma {
     name: 'name',
     publisher: 'publisher',
     githubRepoName: 'githubRepoName',
+    githubUrl: 'githubUrl',
+    latestReleaseVersion: 'latestReleaseVersion',
+    latestReleaseDate: 'latestReleaseDate',
     logoBase64: 'logoBase64',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
@@ -9827,6 +9869,9 @@ export namespace Prisma {
     name?: StringFilter<"Application"> | string
     publisher?: StringFilter<"Application"> | string
     githubRepoName?: StringFilter<"Application"> | string
+    githubUrl?: StringNullableFilter<"Application"> | string | null
+    latestReleaseVersion?: StringNullableFilter<"Application"> | string | null
+    latestReleaseDate?: DateTimeNullableFilter<"Application"> | Date | string | null
     logoBase64?: StringNullableFilter<"Application"> | string | null
     createdAt?: DateTimeFilter<"Application"> | Date | string
     updatedAt?: DateTimeFilter<"Application"> | Date | string
@@ -9837,6 +9882,9 @@ export namespace Prisma {
     name?: SortOrder
     publisher?: SortOrder
     githubRepoName?: SortOrder
+    githubUrl?: SortOrderInput | SortOrder
+    latestReleaseVersion?: SortOrderInput | SortOrder
+    latestReleaseDate?: SortOrderInput | SortOrder
     logoBase64?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -9850,6 +9898,9 @@ export namespace Prisma {
     name?: StringFilter<"Application"> | string
     publisher?: StringFilter<"Application"> | string
     githubRepoName?: StringFilter<"Application"> | string
+    githubUrl?: StringNullableFilter<"Application"> | string | null
+    latestReleaseVersion?: StringNullableFilter<"Application"> | string | null
+    latestReleaseDate?: DateTimeNullableFilter<"Application"> | Date | string | null
     logoBase64?: StringNullableFilter<"Application"> | string | null
     createdAt?: DateTimeFilter<"Application"> | Date | string
     updatedAt?: DateTimeFilter<"Application"> | Date | string
@@ -9860,6 +9911,9 @@ export namespace Prisma {
     name?: SortOrder
     publisher?: SortOrder
     githubRepoName?: SortOrder
+    githubUrl?: SortOrderInput | SortOrder
+    latestReleaseVersion?: SortOrderInput | SortOrder
+    latestReleaseDate?: SortOrderInput | SortOrder
     logoBase64?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -9876,6 +9930,9 @@ export namespace Prisma {
     name?: StringWithAggregatesFilter<"Application"> | string
     publisher?: StringWithAggregatesFilter<"Application"> | string
     githubRepoName?: StringWithAggregatesFilter<"Application"> | string
+    githubUrl?: StringNullableWithAggregatesFilter<"Application"> | string | null
+    latestReleaseVersion?: StringNullableWithAggregatesFilter<"Application"> | string | null
+    latestReleaseDate?: DateTimeNullableWithAggregatesFilter<"Application"> | Date | string | null
     logoBase64?: StringNullableWithAggregatesFilter<"Application"> | string | null
     createdAt?: DateTimeWithAggregatesFilter<"Application"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Application"> | Date | string
@@ -10325,6 +10382,9 @@ export namespace Prisma {
     name: string
     publisher: string
     githubRepoName: string
+    githubUrl?: string | null
+    latestReleaseVersion?: string | null
+    latestReleaseDate?: Date | string | null
     logoBase64?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -10335,6 +10395,9 @@ export namespace Prisma {
     name: string
     publisher: string
     githubRepoName: string
+    githubUrl?: string | null
+    latestReleaseVersion?: string | null
+    latestReleaseDate?: Date | string | null
     logoBase64?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -10345,6 +10408,9 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     publisher?: StringFieldUpdateOperationsInput | string
     githubRepoName?: StringFieldUpdateOperationsInput | string
+    githubUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    latestReleaseVersion?: NullableStringFieldUpdateOperationsInput | string | null
+    latestReleaseDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     logoBase64?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -10355,6 +10421,9 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     publisher?: StringFieldUpdateOperationsInput | string
     githubRepoName?: StringFieldUpdateOperationsInput | string
+    githubUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    latestReleaseVersion?: NullableStringFieldUpdateOperationsInput | string | null
+    latestReleaseDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     logoBase64?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -10365,6 +10434,9 @@ export namespace Prisma {
     name: string
     publisher: string
     githubRepoName: string
+    githubUrl?: string | null
+    latestReleaseVersion?: string | null
+    latestReleaseDate?: Date | string | null
     logoBase64?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -10375,6 +10447,9 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     publisher?: StringFieldUpdateOperationsInput | string
     githubRepoName?: StringFieldUpdateOperationsInput | string
+    githubUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    latestReleaseVersion?: NullableStringFieldUpdateOperationsInput | string | null
+    latestReleaseDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     logoBase64?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -10385,6 +10460,9 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     publisher?: StringFieldUpdateOperationsInput | string
     githubRepoName?: StringFieldUpdateOperationsInput | string
+    githubUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    latestReleaseVersion?: NullableStringFieldUpdateOperationsInput | string | null
+    latestReleaseDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     logoBase64?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -10846,6 +10924,9 @@ export namespace Prisma {
     name?: SortOrder
     publisher?: SortOrder
     githubRepoName?: SortOrder
+    githubUrl?: SortOrder
+    latestReleaseVersion?: SortOrder
+    latestReleaseDate?: SortOrder
     logoBase64?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -10856,6 +10937,9 @@ export namespace Prisma {
     name?: SortOrder
     publisher?: SortOrder
     githubRepoName?: SortOrder
+    githubUrl?: SortOrder
+    latestReleaseVersion?: SortOrder
+    latestReleaseDate?: SortOrder
     logoBase64?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -10866,6 +10950,9 @@ export namespace Prisma {
     name?: SortOrder
     publisher?: SortOrder
     githubRepoName?: SortOrder
+    githubUrl?: SortOrder
+    latestReleaseVersion?: SortOrder
+    latestReleaseDate?: SortOrder
     logoBase64?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder

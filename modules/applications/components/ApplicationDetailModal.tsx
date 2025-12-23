@@ -130,11 +130,48 @@ export default function ApplicationDetailModal({
                   clipRule="evenodd"
                 />
               </svg>
-              <code className="font-mono text-sm text-gray-900 dark:text-gray-100">
-                {application.githubRepoName}
-              </code>
+              {application.githubUrl ? (
+                <a
+                  href={application.githubUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  {application.githubRepoName}
+                </a>
+              ) : (
+                <code className="font-mono text-sm text-gray-900 dark:text-gray-100">
+                  {application.githubRepoName}
+                </code>
+              )}
             </div>
           </div>
+
+          {/* Latest Release */}
+          {application.latestReleaseVersion && (
+            <div className="border-b border-gray-200 dark:border-gray-700 pb-4">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                Última Release
+              </label>
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-sm font-medium">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                  {application.latestReleaseVersion}
+                </span>
+                {application.latestReleaseDate && (
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {new Date(application.latestReleaseDate).toLocaleDateString('es-ES', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Timestamps */}
           <div className="grid grid-cols-2 gap-4">
