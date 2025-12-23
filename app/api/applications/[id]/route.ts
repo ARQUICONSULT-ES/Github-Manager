@@ -3,12 +3,50 @@ import prisma from "@/lib/prisma";
 import { getUserPermissions } from "@/lib/auth-permissions";
 
 /**
+ * GET /api/applications/[id]
+ * Obtiene los detalles de una aplicación
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const permissions = await getUserPermissions();
+
+    if (!permissions.isAuthenticated) {
+      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+    }
+
+    const { id } = await params;
+
+    const application = await prisma.application.findUnique({
+      where: { id },
+    });
+
+    if (!application) {
+      return NextResponse.json(
+        { error: "Aplicación no encontrada" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(application);
+  } catch (error) {
+    console.error("Error fetching application:", error);
+    return NextResponse.json(
+      { error: "Error al obtener la aplicación" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * PUT /api/applications/[id]
  * Actualiza una aplicación existente
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const permissions = await getUserPermissions();
@@ -20,7 +58,7 @@ export async function PUT(
       );
     }
 
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const { name, publisher, githubRepoName } = body;
 
@@ -69,7 +107,7 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const permissions = await getUserPermissions();
@@ -81,7 +119,7 @@ export async function DELETE(
       );
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     // Verificar que la aplicación existe
     const existingApp = await prisma.application.findUnique({

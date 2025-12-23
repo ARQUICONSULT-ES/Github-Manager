@@ -166,9 +166,26 @@ export function ApplicationsList({
                     return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400';
                   };
 
+                  // Ordenar entornos: Production primero, luego Sandbox, luego otros, y alfabéticamente por nombre
+                  const sortedEnvironments = Object.entries(byEnvironment).sort(([, a], [, b]) => {
+                    const typeA = a.environmentType?.toLowerCase() || '';
+                    const typeB = b.environmentType?.toLowerCase() || '';
+                    
+                    // Production primero
+                    if (typeA === 'production' && typeB !== 'production') return -1;
+                    if (typeA !== 'production' && typeB === 'production') return 1;
+                    
+                    // Sandbox segundo
+                    if (typeA === 'sandbox' && typeB !== 'sandbox' && typeB !== 'production') return -1;
+                    if (typeA !== 'sandbox' && typeA !== 'production' && typeB === 'sandbox') return 1;
+                    
+                    // Alfabéticamente por nombre de entorno si son del mismo tipo
+                    return a.environmentName.localeCompare(b.environmentName);
+                  });
+
                   return (
                     <div className="space-y-4">
-                      {Object.entries(byEnvironment).map(([envKey, envData]) => (
+                      {sortedEnvironments.map(([envKey, envData]) => (
                         <div key={envKey}>
                           {/* Header del entorno */}
                           <div className="mb-2 flex items-center gap-2">

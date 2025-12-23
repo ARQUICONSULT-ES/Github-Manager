@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useApplications } from "@/modules/applications/hooks/useApplications";
 import { useApplicationFilter } from "@/modules/applications/hooks/useApplicationFilter";
 import { useSyncFromGitHub } from "@/modules/applications/hooks/useSyncFromGitHub";
 import ApplicationList from "@/modules/applications/components/ApplicationList";
-import ApplicationDetailModal from "@/modules/applications/components/ApplicationDetailModal";
 import type { Application } from "@/modules/applications/types";
 
 export function ApplicationsPage() {
+  const router = useRouter();
   const { applications, isLoading, isRefreshing, refreshApplications } = useApplications();
   const {
     filteredApplications,
@@ -19,18 +20,10 @@ export function ApplicationsPage() {
     publishers,
   } = useApplicationFilter(applications);
   const { syncFromGitHub, isSyncing, syncResults, error: syncError } = useSyncFromGitHub(refreshApplications);
-  const [selectedApplication, setSelectedApplication] = useState<Application | undefined>(undefined);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [showSyncResults, setShowSyncResults] = useState(false);
 
   const handleApplicationClick = (application: Application) => {
-    setSelectedApplication(application);
-    setIsDetailModalOpen(true);
-  };
-
-  const handleCloseDetailModal = () => {
-    setIsDetailModalOpen(false);
-    setSelectedApplication(undefined);
+    router.push(`/applications/${application.id}`);
   };
 
   const handleRefresh = async () => {
@@ -213,13 +206,6 @@ export function ApplicationsPage() {
           </div>
         </div>
       )}
-
-      {/* Application Detail Modal (Solo lectura) */}
-      <ApplicationDetailModal
-        isOpen={isDetailModalOpen}
-        onClose={handleCloseDetailModal}
-        application={selectedApplication}
-      />
 
       {/* Contenido */}
       {isLoading ? (
