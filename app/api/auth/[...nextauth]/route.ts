@@ -87,6 +87,8 @@ const authOptions: NextAuthOptions = {
     },
     secret: process.env.NEXTAUTH_SECRET,
     debug: process.env.NODE_ENV === 'development',
+    // NEXTAUTH_URL no es necesario en producción - NextAuth lo detecta automáticamente
+    // Solo se necesita en desarrollo local si no usas el puerto por defecto (3000)
 }
 
 const handler = NextAuth(authOptions);

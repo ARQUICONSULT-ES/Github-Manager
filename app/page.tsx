@@ -1,23 +1,28 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { signIn, useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
-export default function Home() {
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, status } = useSession();
+
+  // Obtener el callbackUrl de los parámetros de la URL
+  const callbackUrl = searchParams.get("callbackUrl") || "/customers";
 
   // Redirigir automáticamente si ya hay sesión activa
   useEffect(() => {
     if (status === "authenticated") {
-      router.push("/customers");
+      // Usar window.location para forzar la redirección
+      window.location.href = callbackUrl;
     }
-  }, [status, router]);
+  }, [status, callbackUrl]);
 
   // Mostrar loading mientras se verifica la sesión
   if (status === "loading") {
@@ -33,9 +38,18 @@ export default function Home() {
     );
   }
 
-  // No mostrar el formulario si ya está autenticado
+  // Si ya está autenticado, mostrar loading mientras redirige
   if (status === "authenticated") {
-    return null;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-black">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl mb-4 animate-pulse">
+            <span className="text-2xl font-bold text-white">CEM</span>
+          </div>
+          <p className="text-gray-600 dark:text-gray-400">Redirigiendo...</p>
+        </div>
+      </div>
+    );
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -54,7 +68,8 @@ export default function Home() {
         // Mostrar el error específico que viene de NextAuth
         setError(result.error);
       } else if (result?.ok) {
-        router.push("/customers");
+        // Usar window.location para forzar la redirección
+        window.location.href = callbackUrl;
       }
     } catch (err) {
       console.error("Error inesperado:", err);
@@ -233,5 +248,22 @@ export default function Home() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-black">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl mb-4 animate-pulse">
+            <span className="text-2xl font-bold text-white">CEM</span>
+          </div>
+          <p className="text-gray-600 dark:text-gray-400">Cargando...</p>
+        </div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }
