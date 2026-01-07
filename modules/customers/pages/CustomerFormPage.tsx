@@ -15,6 +15,7 @@ import { ApplicationsList } from "@/modules/customers/components/ApplicationsLis
 import { ApplicationListSkeleton } from "@/modules/customers/components/ApplicationCardSkeleton";
 import { useToast } from "@/modules/shared/hooks/useToast";
 import ToastContainer from "@/modules/shared/components/ToastContainer";
+import { dataCache, CACHE_KEYS } from "@/modules/shared/utils/cache";
 
 interface CustomerFormPageProps {
   customerId?: string;
@@ -219,6 +220,9 @@ export function CustomerFormPage({ customerId }: CustomerFormPageProps) {
 
       const savedCustomer = await response.json();
       
+      // Invalidar la caché de clientes para forzar recarga
+      dataCache.invalidate(CACHE_KEYS.CUSTOMERS);
+      
       // Si es creación, redirigir al modo edición del nuevo cliente
       if (!isEditMode && savedCustomer.id) {
         router.push(`/customers/${savedCustomer.id}/edit`);
@@ -249,6 +253,9 @@ export function CustomerFormPage({ customerId }: CustomerFormPageProps) {
         throw new Error(errorData.error || "Error al eliminar el cliente");
       }
 
+      // Invalidar la caché de clientes para forzar recarga
+      dataCache.invalidate(CACHE_KEYS.CUSTOMERS);
+      
       router.push('/customers');
       router.refresh();
     } catch (err) {
