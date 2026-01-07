@@ -31,6 +31,17 @@ export default function EnvironmentCard({ environment }: EnvironmentCardProps) {
     }
     router.push(`/installed-apps?${params.toString()}`);
   };
+
+  const handleOutdatedAppsClick = () => {
+    const params = new URLSearchParams();
+    params.set('filterCustomer', environment.customerName);
+    params.set('filterEnvironment', environment.name);
+    if (environment.type) {
+      params.set('filterEnvType', environment.type);
+    }
+    params.set('showOutdated', 'true');
+    router.push(`/installed-apps?${params.toString()}`);
+  };
   
   return (
     <div className={`group relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 ${isDeleted ? 'opacity-60 bg-red-50 dark:bg-red-900/10' : ''}`}>
@@ -78,7 +89,7 @@ export default function EnvironmentCard({ environment }: EnvironmentCardProps) {
         </div>
 
         {/* Status y Apps Count */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className={`grid gap-2 ${environment.outdatedAppsCount && environment.outdatedAppsCount > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
           {/* Status */}
           <div className="flex items-center gap-2 text-xs">
             <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -117,6 +128,30 @@ export default function EnvironmentCard({ environment }: EnvironmentCardProps) {
                 </p>
                 <span className="text-xs font-medium text-gray-900 dark:text-white group-hover/apps:text-blue-600 dark:group-hover/apps:text-blue-400">
                   {environment.appsCount}
+                </span>
+              </div>
+            </button>
+          )}
+
+          {/* Outdated Apps Count */}
+          {environment.outdatedAppsCount !== undefined && environment.outdatedAppsCount > 0 && (
+            <button
+              onClick={handleOutdatedAppsClick}
+              className="flex items-center gap-2 text-xs hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded p-1 transition-colors cursor-pointer group/outdated border border-transparent hover:border-orange-200 dark:hover:border-orange-800"
+              title="Ver aplicaciones desactualizadas"
+            >
+              <svg className="w-3.5 h-3.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div className="min-w-0 text-left">
+                <p className="text-xs text-orange-600 dark:text-orange-400 group-hover/outdated:text-orange-700 dark:group-hover/outdated:text-orange-300 flex items-center gap-1">
+                  Desact.
+                  <svg className="w-3 h-3 text-orange-500 group-hover/outdated:text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </p>
+                <span className="text-xs font-medium text-orange-700 dark:text-orange-400 group-hover/outdated:text-orange-800 dark:group-hover/outdated:text-orange-300">
+                  {environment.outdatedAppsCount}
                 </span>
               </div>
             </button>

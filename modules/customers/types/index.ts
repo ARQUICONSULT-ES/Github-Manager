@@ -47,6 +47,7 @@ export interface EnvironmentWithCustomer extends Environment {
   customerImage?: string | null;
   tenantDescription?: string | null;
   appsCount?: number;
+  outdatedAppsCount?: number;
 }
 
 // Respuesta de la API de Business Central
