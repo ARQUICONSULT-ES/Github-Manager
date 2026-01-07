@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { getAuthenticatedUserGitHubToken } from "@/lib/auth-github";
 
 const GITHUB_API_URL = "https://api.github.com";
 
 export async function POST(request: NextRequest) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("github_token")?.value;
-
-  if (!token) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
-
   try {
+    const token = await getAuthenticatedUserGitHubToken();
+
+    if (!token) {
+      return NextResponse.json(
+        { error: "No GitHub token found. Please add your GitHub token in your profile." },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { owner, repo, workflow, ref = "main", inputs = {} } = body;
 

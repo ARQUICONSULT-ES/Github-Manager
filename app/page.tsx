@@ -1,236 +1,235 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
 export default function Home() {
-  const [showTokenModal, setShowTokenModal] = useState(false);
-  const [token, setToken] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { data: session, status } = useSession();
 
-  const handleViewRepos = () => {
-    setShowTokenModal(true);
-    setError("");
-  };
+  // Redirigir automáticamente si ya hay sesión activa
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.push("/customers");
+    }
+  }, [status, router]);
 
-  const handleSubmitToken = async (e: React.FormEvent) => {
+  // Mostrar loading mientras se verifica la sesión
+  if (status === "loading") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-black">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl mb-4 animate-pulse">
+            <span className="text-2xl font-bold text-white">CEM</span>
+          </div>
+          <p className="text-gray-600 dark:text-gray-400">Verificando sesión...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // No mostrar el formulario si ya está autenticado
+  if (status === "authenticated") {
+    return null;
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     setError("");
+    setIsLoading(true);
 
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ token }),
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        const errorMessage = data.details 
-          ? `${data.error}: ${data.details}` 
-          : data.error || "Error al validar el token";
-        throw new Error(errorMessage);
+      if (result?.error) {
+        setError("Credenciales incorrectas");
+      } else if (result?.ok) {
+        router.push("/customers");
       }
-
-      router.push("/repos");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
+      setError("Error al iniciar sesión");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-black">
-      <main className="flex w-full max-w-4xl flex-col items-center justify-center px-6 py-24 text-center">
-        <div className="mb-8">
-          <svg
-            className="w-24 h-24 text-gray-900 dark:text-white"
-            viewBox="0 0 16 16"
-            fill="currentColor"
-          >
-            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-          </svg>
-        </div>
-
-        <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-4">
-          GitHub Manager
-        </h1>
-        <p className="text-xl text-gray-600 dark:text-gray-400 mb-8 max-w-2xl">
-          Gestiona todos tus repositorios de GitHub en un solo lugar.
-          Explora, organiza y manten control total de tus proyectos.
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 w-full max-w-3xl">
-          <div className="p-6 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
-            <svg
-              className="w-10 h-10 text-blue-600 dark:text-blue-400 mb-4 mx-auto"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-              />
-            </svg>
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-              Vista Unificada
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Todos tus repositorios en un solo dashboard organizado
-            </p>
+    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-black">
+      {/* Lado izquierdo - Información */}
+      <div className="hidden lg:flex lg:w-1/2 flex-col justify-center px-12 xl:px-24">
+        <div className="max-w-xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-4">
+              Customer Environment Manager
+            </h1>
+            <div className="h-1 w-24 bg-blue-600 dark:bg-blue-400 rounded"></div>
           </div>
 
-          <div className="p-6 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
-            <svg
-              className="w-10 h-10 text-green-600 dark:text-green-400 mb-4 mx-auto"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-              Busqueda Rapida
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Encuentra proyectos rapidamente con filtros inteligentes
-            </p>
-          </div>
+          <p className="text-xl text-gray-600 dark:text-gray-400 mb-12">
+            Plataforma centralizada para la gestión integral de clientes de Business Central y repositorios de GitHub
+          </p>
 
-          <div className="p-6 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
-            <svg
-              className="w-10 h-10 text-purple-600 dark:text-purple-400 mb-4 mx-auto"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-              />
-            </svg>
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-              Estadisticas
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Visualiza metricas y actividad de tus proyectos
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-center">
-          <button
-            onClick={handleViewRepos}
-            className="inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 bg-gray-900 text-white hover:bg-gray-800 focus:ring-gray-500 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 px-6 py-3 text-base"
-          >
-            Ver Mis Repositorios
-          </button>
-        </div>
-
-        <p className="mt-12 text-sm text-gray-500 dark:text-gray-500">
-          Conectado con{" "}
-          <a
-            href="https://github.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:underline dark:text-blue-400"
-          >
-            GitHub API
-          </a>
-        </p>
-      </main>
-
-      {showTokenModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                Conectar con GitHub
-              </h2>
-              <button
-                onClick={() => setShowTokenModal(false)}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <div className="space-y-6">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
-              </button>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Gestión de Clientes</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Administra clientes, tenants y entornos de Business Central desde un único panel
+                </p>
+              </div>
             </div>
 
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Introduce tu token de acceso personal de GitHub para acceder a tus repositorios.
-              Puedes crear uno en{" "}
-              <a
-                href="https://github.com/settings/tokens"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:underline dark:text-blue-400"
-              >
-                GitHub Settings - Tokens
-              </a>
-            </p>
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Integración con GitHub</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Sincroniza y gestiona repositorios, releases, workflows y dependencias
+                </p>
+              </div>
+            </div>
 
-            <form onSubmit={handleSubmitToken} autoComplete="on">
-              <div className="mb-4">
-                <label htmlFor="token" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Token de GitHub
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Control de Aplicaciones</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Monitoriza extensiones, versiones y configuraciones de tus entornos
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Lado derecho - Formulario de Login */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
+        <div className="w-full max-w-md">
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl p-8 border border-gray-200 dark:border-gray-800">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl mb-4">
+                <span className="text-2xl font-bold text-white">CEM</span>
+              </div>
+              
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Iniciar Sesión
+              </h2>
+              
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Accede a tu cuenta para continuar
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label 
+                  htmlFor="email" 
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  Email
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                  placeholder="tu@email.com"
+                />
+              </div>
+
+              <div>
+                <label 
+                  htmlFor="password" 
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  Contraseña
                 </label>
                 <input
                   type="password"
-                  id="token"
-                  name="token"
+                  id="password"
+                  name="password"
                   autoComplete="current-password"
-                  value={token}
-                  onChange={(e) => setToken(e.target.value)}
-                  placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                  placeholder="••••••••"
                 />
               </div>
 
               {error && (
-                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                   <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
                 </div>
               )}
 
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowTokenModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isLoading || !token}
-                  className="flex-1 px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-md hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLoading ? "Verificando..." : "Conectar"}
-                </button>
-              </div>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-lg shadow-blue-500/50 dark:shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? "Iniciando sesión..." : "Iniciar Sesión"}
+              </button>
             </form>
+
+            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800">
+              <p className="text-center text-xs text-gray-500 dark:text-gray-500">
+                Integrado con{" "}
+                <a
+                  href="https://github.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline dark:text-blue-400"
+                >
+                  GitHub
+                </a>
+                {" "}y{" "}
+                <a
+                  href="https://dynamics.microsoft.com/es-es/business-central/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline dark:text-blue-400"
+                >
+                  Business Central
+                </a>
+              </p>
+            </div>
+          </div>
+
+          {/* Logo móvil */}
+          <div className="lg:hidden text-center mt-8">
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+              Customer Environment Manager
+            </h3>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

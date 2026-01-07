@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { GitHubRepository } from "@/types/github";
+import { dataCache, CACHE_KEYS } from "../../shared/utils/cache";
 
 interface UseReposReturn {
   repos: GitHubRepository[];
   isLoading: boolean;
   error: string | null;
+  needsToken: boolean;
   fetchRepos: () => Promise<void>;
   refetch: () => Promise<void>;
 }
@@ -14,19 +17,36 @@ interface UseReposReturn {
  * Hook para gestionar la carga de repositorios desde la API de GitHub
  */
 export function useRepos(): UseReposReturn {
-  const [repos, setRepos] = useState<GitHubRepository[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: session, update: updateSession } = useSession();
+  // Guardamos el avatar actual de la sesión para comparar y evitar bucles
+  const currentSessionImage = session?.user?.image;
+  const [repos, setRepos] = useState<GitHubRepository[]>(() => {
+    // Intentar cargar desde cache al inicializar
+    return dataCache.get<GitHubRepository[]>(CACHE_KEYS.REPOS) || [];
+  });
+  const [isLoading, setIsLoading] = useState(() => {
+    // Si hay datos en cache, no mostrar loading
+    return !dataCache.has(CACHE_KEYS.REPOS);
+  });
   const [error, setError] = useState<string | null>(null);
+  const [needsToken, setNeedsToken] = useState(false);
   const router = useRouter();
 
   const fetchRepos = async () => {
     setIsLoading(true);
     setError(null);
+    setNeedsToken(false);
     
     try {
       const res = await fetch("/api/github/repos");
       
       if (res.status === 401) {
+        const data = await res.json();
+        if (data.error?.includes("GitHub token")) {
+          setNeedsToken(true);
+          setError("Se requiere un token de GitHub para acceder a los repositorios");
+          return;
+        }
         router.push("/");
         return;
       }
@@ -37,7 +57,20 @@ export function useRepos(): UseReposReturn {
       }
 
       const data = await res.json();
-      setRepos(data);
+      
+      // Solo actualizar la sesión si el avatar ha cambiado realmente
+      // Esto evita el bucle infinito de re-render
+      if (data.githubAvatar !== undefined && data.githubAvatar !== currentSessionImage) {
+        await updateSession({ 
+          image: data.githubAvatar 
+        });
+      }
+      
+      // La respuesta ahora incluye { repos, githubAvatar }
+      const repositories = data.repos || data;
+      setRepos(repositories);
+      // Guardar en cache
+      dataCache.set(CACHE_KEYS.REPOS, repositories);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
@@ -46,13 +79,16 @@ export function useRepos(): UseReposReturn {
   };
 
   useEffect(() => {
+    // Siempre cargar los repos al montar el componente para verificar el token
     fetchRepos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {
     repos,
     isLoading,
     error,
+    needsToken,
     fetchRepos,
     refetch: fetchRepos,
   };

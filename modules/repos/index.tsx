@@ -1,29 +1,33 @@
 "use client";
 
-import { useRef } from "react";
-import { RepoList } from "./components/RepoList";
-import type { RepoListHandle } from "./types";
-import { useRepos } from "./hooks/useRepos";
-import { useRepoFilter } from "./hooks/useRepoFilter";
+import { useRef, useState, useEffect } from "react";
+import { RepoList } from "@/modules/repos/components/RepoList";
+import { GitHubTokenModal } from "@/modules/repos/components/GitHubTokenModal";
+import type { RepoListHandle } from "@/modules/repos/types";
+import { useRepos } from "@/modules/repos/hooks/useRepos";
+import { useRepoFilter } from "@/modules/repos/hooks/useRepoFilter";
+import { useToast } from "@/modules/shared/hooks/useToast";
+import ToastContainer from "@/modules/shared/components/ToastContainer";
 
 function SkeletonCard() {
   return (
-    <div className="bg-gray-900 border border-gray-700 rounded-lg p-4 flex flex-col gap-3 animate-pulse">
+    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex flex-col gap-3 animate-pulse">
       <div className="flex items-start justify-between gap-2">
-        <div className="h-4 bg-gray-700 rounded w-3/4"></div>
-        <div className="w-5 h-5 bg-gray-700 rounded-full"></div>
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+        <div className="w-5 h-5 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
       </div>
-      <div className="h-5 bg-gray-700 rounded w-20"></div>
+      <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
       <div className="flex items-center gap-2 mt-auto">
-        <div className="flex-1 h-9 bg-gray-700 rounded-md"></div>
-        <div className="w-9 h-9 bg-gray-700 rounded-md"></div>
+        <div className="flex-1 h-9 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
+        <div className="w-9 h-9 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
       </div>
     </div>
   );
 }
 
 export function ReposPage() {
-  const { repos, isLoading, error, fetchRepos } = useRepos();
+  const { toasts, removeToast } = useToast();
+  const { repos, isLoading, error, fetchRepos, needsToken } = useRepos();
   const { 
     filteredRepos: filteredAndSortedRepos, 
     searchQuery, 
@@ -32,6 +36,37 @@ export function ReposPage() {
     setSortBy 
   } = useRepoFilter(repos);
   const repoListRef = useRef<RepoListHandle>(null);
+  const [showTokenModal, setShowTokenModal] = useState(false);
+
+  // Mostrar modal si se necesita el token
+  useEffect(() => {
+    if (needsToken && !isLoading) {
+      setShowTokenModal(true);
+    }
+  }, [needsToken, isLoading]);
+
+  const handleSaveToken = async (token: string) => {
+    try {
+      const response = await fetch("/api/users/me/github-token", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ githubToken: token }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Error al guardar el token");
+      }
+
+      // Recargar los repositorios
+      await fetchRepos();
+      setShowTokenModal(false);
+    } catch (error) {
+      throw error;
+    }
+  };
 
   const handleLoadCICD = async () => {
     if (repoListRef.current) {
@@ -41,19 +76,78 @@ export function ReposPage() {
 
   const isLoadingCICD = repoListRef.current?.isLoadingWorkflows ?? false;
 
+  // Si se necesita token, mostrar solo el modal (sin otros errores)
+  if (needsToken) {
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            Administración de repositorios
+          </h1>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Configura tu token de GitHub para acceder a tus repositorios
+          </p>
+        </div>
+
+        {/* Mensaje informativo */}
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="w-20 h-20 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center mb-4">
+            <svg
+              className="w-10 h-10 text-blue-600 dark:text-blue-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+              />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+            Token de GitHub requerido
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md">
+            Para acceder a tus repositorios de GitHub, necesitas configurar un token personal de acceso.
+            Haz clic en el botón de abajo para comenzar.
+          </p>
+          <button
+            onClick={() => setShowTokenModal(true)}
+            className="mt-6 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Configurar Token de GitHub
+          </button>
+        </div>
+
+        {/* Modal para configurar GitHub Token */}
+        <GitHubTokenModal
+          isOpen={showTokenModal}
+          onClose={() => setShowTokenModal(false)}
+          onSave={handleSaveToken}
+        />
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-6">
         {/* Header skeleton */}
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-700 rounded w-48 mb-2"></div>
-          <div className="h-4 bg-gray-700 rounded w-32"></div>
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-48 mb-2"></div>
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
         </div>
 
         {/* Search and sort skeleton */}
         <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 h-10 bg-gray-700 rounded-lg animate-pulse"></div>
-          <div className="h-10 bg-gray-700 rounded-lg w-48 animate-pulse"></div>
+          <div className="flex-1 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded-lg w-48 animate-pulse"></div>
         </div>
 
         {/* Grid skeleton */}
@@ -103,7 +197,7 @@ export function ReposPage() {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          Mis Repositorios
+          Administración de repositorios
         </h1>
         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
           {searchQuery 
@@ -114,7 +208,7 @@ export function ReposPage() {
       </div>
 
       {/* Buscador y ordenacion */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col gap-3">
         <div className="relative flex-1">
           <svg
             className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
@@ -138,15 +232,15 @@ export function ReposPage() {
           />
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">Ordenar:</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap hidden sm:inline">Ordenar:</span>
             <div className="inline-flex rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden">
               <button
                 onClick={() => setSortBy("updated")}
-                className={`px-3 py-2 text-sm font-medium transition-colors ${
+                className={`px-3 py-2 text-xs sm:text-sm font-medium transition-colors cursor-pointer ${
                   sortBy === "updated"
-                    ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                    ? "bg-blue-600 text-white dark:bg-blue-500"
                     : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
                 }`}
               >
@@ -154,9 +248,9 @@ export function ReposPage() {
               </button>
               <button
                 onClick={() => setSortBy("name")}
-                className={`px-3 py-2 text-sm font-medium border-l border-gray-300 dark:border-gray-700 transition-colors ${
+                className={`px-3 py-2 text-xs sm:text-sm font-medium border-l border-gray-300 dark:border-gray-700 transition-colors cursor-pointer ${
                   sortBy === "name"
-                    ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                    ? "bg-blue-600 text-white dark:bg-blue-500"
                     : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
                 }`}
               >
@@ -209,6 +303,16 @@ export function ReposPage() {
           </p>
         </div>
       )}
+
+      {/* Modal para configurar GitHub Token */}
+      <GitHubTokenModal
+        isOpen={showTokenModal}
+        onClose={() => setShowTokenModal(false)}
+        onSave={handleSaveToken}
+      />
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }
