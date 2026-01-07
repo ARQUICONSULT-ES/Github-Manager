@@ -9,10 +9,9 @@ export async function middleware(request: NextRequest) {
   });
 
   // Si no hay token, redirigir a la página principal (login)
+  // NextAuth maneja automáticamente el callbackUrl
   if (!token) {
-    const loginUrl = new URL("/", request.url);
-    loginUrl.searchParams.set("callbackUrl", request.url);
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   return NextResponse.next();

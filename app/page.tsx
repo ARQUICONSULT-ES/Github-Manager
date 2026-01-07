@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { signIn, useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function Home() {
   const [email, setEmail] = useState("");
@@ -10,14 +10,18 @@ export default function Home() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, status } = useSession();
+
+  // Obtener el callbackUrl de los parámetros de la URL
+  const callbackUrl = searchParams.get("callbackUrl") || "/customers";
 
   // Redirigir automáticamente si ya hay sesión activa
   useEffect(() => {
     if (status === "authenticated") {
-      router.push("/customers");
+      router.push(callbackUrl);
     }
-  }, [status, router]);
+  }, [status, router, callbackUrl]);
 
   // Mostrar loading mientras se verifica la sesión
   if (status === "loading") {
@@ -54,7 +58,8 @@ export default function Home() {
         // Mostrar el error específico que viene de NextAuth
         setError(result.error);
       } else if (result?.ok) {
-        router.push("/customers");
+        // Redirigir al callbackUrl o a /customers por defecto
+        router.push(callbackUrl);
       }
     } catch (err) {
       console.error("Error inesperado:", err);
