@@ -295,7 +295,21 @@ export function CustomerFormPage({ customerId }: CustomerFormPageProps) {
 
   const handleSyncEnvironments = async () => {
     if (!customerId) return;
-    await syncEnvironments();
+    
+    try {
+      const result = await syncEnvironments();
+      
+      if (result) {
+        if (result.failed === 0) {
+          success(`Sincronización completada: ${result.success}/${result.total} tenants sincronizados`);
+        } else {
+          const errorMessages = result.errors.map((e: any) => `- ${e.customerName || e.tenantId}: ${e.error}`).join('\n');
+          warning(`Sincronización completada con errores:\nExitosos: ${result.success}\nFallidos: ${result.failed}\n\nDetalles:\n${errorMessages}`);
+        }
+      }
+    } catch (err) {
+      showError(`Error al sincronizar los entornos: ${err instanceof Error ? err.message : 'Error desconocido'}`);
+    }
   };
 
   const handleSyncInstalledApps = async () => {

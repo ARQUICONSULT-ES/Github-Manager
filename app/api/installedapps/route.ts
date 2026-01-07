@@ -17,16 +17,42 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Construir el where según los permisos
-    const whereClause = permissions.isAdmin
-      ? {} // Admin ve todas las aplicaciones
-      : {
-          environment: {
-            tenant: {
-              customerId: { in: permissions.allowedCustomerIds },
-            },
+    // Obtener el parámetro customerId de la URL si existe
+    const { searchParams } = new URL(request.url);
+    const customerId = searchParams.get('customerId');
+
+    // Construir el where según los permisos y el filtro de customerId
+    let whereClause: any = {};
+    
+    if (customerId) {
+      // Si se especifica un customerId, filtrar por ese cliente
+      // Verificar que el usuario tenga permiso para ver ese cliente (solo si no es admin)
+      const allowedIds: string[] = permissions.allowedCustomerIds;
+      if (!permissions.isAdmin && allowedIds.length > 0 && !allowedIds.includes(customerId)) {
+        return NextResponse.json(
+          { error: "No autorizado para ver este cliente" },
+          { status: 403 }
+        );
+      }
+      whereClause = {
+        environment: {
+          tenant: {
+            customerId: customerId,
           },
-        }; // USER ve solo aplicaciones de sus clientes permitidos
+        },
+      };
+    } else {
+      // Sin customerId, aplicar permisos generales
+      whereClause = permissions.isAdmin
+        ? {} // Admin ve todas las aplicaciones
+        : {
+            environment: {
+              tenant: {
+                customerId: { in: permissions.allowedCustomerIds },
+              },
+            },
+          }; // USER ve solo aplicaciones de sus clientes permitidos
+    }
 
     const applications = await prisma.installedApp.findMany({
       where: whereClause,
