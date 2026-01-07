@@ -37,9 +37,18 @@ function LoginForm() {
     );
   }
 
-  // No mostrar el formulario si ya está autenticado
+  // Si ya está autenticado, mostrar loading mientras redirige
   if (status === "authenticated") {
-    return null;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-black">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl mb-4 animate-pulse">
+            <span className="text-2xl font-bold text-white">CEM</span>
+          </div>
+          <p className="text-gray-600 dark:text-gray-400">Redirigiendo...</p>
+        </div>
+      </div>
+    );
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
