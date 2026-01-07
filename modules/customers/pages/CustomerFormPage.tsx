@@ -16,6 +16,7 @@ import { ApplicationListSkeleton } from "@/modules/customers/components/Applicat
 import { useToast } from "@/modules/shared/hooks/useToast";
 import ToastContainer from "@/modules/shared/components/ToastContainer";
 import { dataCache, CACHE_KEYS } from "@/modules/shared/utils/cache";
+import { isVersionOutdated } from "@/modules/applications/utils/versionComparison";
 
 interface CustomerFormPageProps {
   customerId?: string;
@@ -71,6 +72,9 @@ export function CustomerFormPage({ customerId }: CustomerFormPageProps) {
   // Estado para filtro de entornos Sandbox en aplicaciones instaladas
   const [hideSandboxApps, setHideSandboxApps] = useState(true);
 
+  // Estado para filtro de aplicaciones desactualizadas
+  const [showOnlyOutdated, setShowOnlyOutdated] = useState(false);
+
   // Estado para almacenar las versiones más recientes de las aplicaciones
   const [latestVersions, setLatestVersions] = useState<Record<string, string>>({});
 
@@ -124,6 +128,14 @@ export function CustomerFormPage({ customerId }: CustomerFormPageProps) {
     if (hideSandboxApps) {
       // Ocultar apps de entornos Sandbox
       if (app.environmentType === 'Sandbox') {
+        return false;
+      }
+    }
+    
+    // Filtro de aplicaciones desactualizadas
+    if (showOnlyOutdated) {
+      const latestVersion = latestVersions[app.id];
+      if (!latestVersion || !isVersionOutdated(app.version, latestVersion)) {
         return false;
       }
     }
@@ -721,6 +733,22 @@ export function CustomerFormPage({ customerId }: CustomerFormPageProps) {
                 />
                 <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">
                   Ocultar Sandbox
+                </span>
+              </label>
+              
+              {/* Checkbox para mostrar solo desactualizadas */}
+              <label className="flex items-center gap-1.5 sm:gap-2 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={showOnlyOutdated}
+                  onChange={(e) => setShowOnlyOutdated(e.target.checked)}
+                  className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-600 bg-gray-100 dark:bg-gray-700 border-orange-300 dark:border-orange-600 rounded focus:ring-orange-500 focus:ring-2 cursor-pointer"
+                />
+                <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 group-hover:text-orange-700 dark:group-hover:text-orange-300 transition-colors flex items-center gap-1">
+                  <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  Solo desactualizadas
                 </span>
               </label>
             </div>

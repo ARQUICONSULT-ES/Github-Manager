@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { Application } from "@/modules/applications/types";
 import { useApplicationInstallations } from "@/modules/applications/hooks/useApplicationInstallations";
 import { ApplicationsList } from "@/modules/customers/components/ApplicationsList";
-import { countOutdatedInstallations } from "@/modules/applications/utils/versionComparison";
+import { countOutdatedInstallations, isVersionOutdated } from "@/modules/applications/utils/versionComparison";
 
 interface ApplicationDetailPageProps {
   applicationId: string;
@@ -16,6 +16,7 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
   const [application, setApplication] = useState<Application | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showOnlyOutdated, setShowOnlyOutdated] = useState(false);
 
   const {
     installations,
@@ -48,6 +49,16 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
 
     fetchApplication();
   }, [applicationId]);
+
+  // Filtrar instalaciones desactualizadas
+  const filteredInstallations = useMemo(() => {
+    if (!showOnlyOutdated || !application?.latestReleaseVersion) {
+      return installations;
+    }
+    return installations.filter(inst => 
+      isVersionOutdated(inst.version, application.latestReleaseVersion!)
+    );
+  }, [installations, showOnlyOutdated, application?.latestReleaseVersion]);
 
   const handleBack = () => {
     router.back();
@@ -253,16 +264,35 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
       {/* Sección de Instalaciones */}
       <div className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="px-3 sm:px-5 py-2 sm:py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-          <h2 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white flex items-center gap-1.5 sm:gap-2 flex-wrap">
-            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-500 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
-            </svg>
-            <span className="hidden sm:inline">Instalaciones por Cliente</span>
-            <span className="sm:hidden">Instalaciones</span>
-            <span className="ml-0.5 sm:ml-1 px-1.5 py-0.5 text-[10px] sm:text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full">
-              {installations.length}
-            </span>
-          </h2>
+          <div className="flex items-center gap-2 sm:gap-3 md:gap-4 flex-wrap w-full sm:w-auto">
+            <h2 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white flex items-center gap-1.5 sm:gap-2">
+              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-500 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+              </svg>
+              <span className="hidden sm:inline">Instalaciones por Cliente</span>
+              <span className="sm:hidden">Instalaciones</span>
+              <span className="ml-0.5 sm:ml-1 px-1.5 py-0.5 text-[10px] sm:text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full">
+                {filteredInstallations.length}
+              </span>
+            </h2>
+            
+            {/* Filtro de solo desactualizadas */}
+            <label className="flex items-center gap-1.5 sm:gap-2 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={showOnlyOutdated}
+                onChange={(e) => setShowOnlyOutdated(e.target.checked)}
+                className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-600 bg-gray-100 dark:bg-gray-700 border-orange-300 dark:border-orange-600 rounded focus:ring-orange-500 focus:ring-2 cursor-pointer"
+              />
+              <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 group-hover:text-orange-700 dark:group-hover:text-orange-300 transition-colors flex items-center gap-1">
+                <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                Solo desactualizadas
+              </span>
+            </label>
+          </div>
+          
           <button
             type="button"
             onClick={refetchInstallations}
@@ -289,7 +319,7 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
         </div>
         <div className="p-3 sm:p-4 md:p-5">
           <ApplicationsList 
-            applications={installations}
+            applications={filteredInstallations}
             isLoading={installationsLoading}
             lockExpanded={true}
             latestVersions={application.latestReleaseVersion ? { [application.id]: application.latestReleaseVersion } : {}}

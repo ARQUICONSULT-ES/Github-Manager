@@ -10,6 +10,7 @@ interface InstalledAppFilters {
   environmentType?: string;
   publishedAs?: string;
   hideMicrosoftApps?: boolean;
+  showOnlyOutdated?: boolean;
 }
 
 interface ApplicationFilterPanelProps {
@@ -51,7 +52,8 @@ export function ApplicationFilterPanel({
     filters.customerName ||
     filters.environmentName ||
     filters.environmentType ||
-    filters.publishedAs;
+    filters.publishedAs ||
+    filters.showOnlyOutdated;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -73,6 +75,30 @@ export function ApplicationFilterPanel({
             : "text-gray-700 dark:text-gray-300"
         }`}>
           Ocultar apps Microsoft
+        </span>
+      </label>
+
+      {/* Toggle para mostrar solo aplicaciones desactualizadas */}
+      <label className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-md border cursor-pointer transition-colors ${
+        filters.showOnlyOutdated
+          ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20 dark:border-orange-600"
+          : "border-gray-300 bg-white hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800"
+      }`}>
+        <input
+          type="checkbox"
+          checked={filters.showOnlyOutdated ?? false}
+          onChange={(e) => onFilterChange({ ...filters, showOnlyOutdated: e.target.checked })}
+          className="w-4 h-4 text-orange-600 bg-white border-orange-500 rounded focus:ring-orange-500 focus:ring-2 checked:bg-orange-600 checked:border-orange-600 dark:bg-gray-700 dark:border-orange-500 dark:checked:bg-orange-600 dark:checked:border-orange-600"
+        />
+        <span className={`text-xs font-medium flex items-center gap-1 ${
+          filters.showOnlyOutdated
+            ? "text-orange-700 dark:text-orange-300"
+            : "text-gray-700 dark:text-gray-300"
+        }`}>
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          Solo desactualizadas
         </span>
       </label>
 

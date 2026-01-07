@@ -3,6 +3,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import type { InstalledAppWithEnvironment } from '@/modules/customers/types';
 import type { FilterConfig } from '@/modules/customers/types/filters';
 import { useGenericFilter } from './useGenericFilter';
+import { isVersionOutdated } from '@/modules/applications/utils/versionComparison';
 
 // Interfaz para filtros avanzados
 export interface InstalledAppAdvancedFilters {
@@ -12,6 +13,7 @@ export interface InstalledAppAdvancedFilters {
   environmentType?: string;
   publishedAs?: string;
   hideMicrosoftApps?: boolean;
+  showOnlyOutdated?: boolean;
 }
 
 // Configuración de filtros para aplicaciones instaladas
@@ -52,13 +54,17 @@ export const installedAppFilterConfig: FilterConfig<InstalledAppWithEnvironment>
   ],
 };
 
-export function useInstalledAppFilter(installedApps: InstalledAppWithEnvironment[]) {
+export function useInstalledAppFilter(
+  installedApps: InstalledAppWithEnvironment[],
+  latestVersions: Record<string, string> = {}
+) {
   const searchParams = useSearchParams();
   const router = useRouter();
 
   // Inicializar filtros avanzados desde URL con valores por defecto
   const getInitialFilters = useCallback((): InstalledAppAdvancedFilters => {
     const hideMicrosoft = searchParams.get('hideMicrosoft');
+    const showOutdated = searchParams.get('showOutdated');
     return {
       publisher: searchParams.get('filterPublisher') || undefined,
       customerName: searchParams.get('filterCustomer') || undefined,
@@ -66,6 +72,7 @@ export function useInstalledAppFilter(installedApps: InstalledAppWithEnvironment
       environmentType: searchParams.get('filterEnvType') || undefined,
       publishedAs: searchParams.get('filterPublishedAs') || undefined,
       hideMicrosoftApps: hideMicrosoft === null ? true : hideMicrosoft === 'true', // true por defecto
+      showOnlyOutdated: showOutdated === 'true',
     };
   }, [searchParams]);
 
@@ -109,6 +116,13 @@ export function useInstalledAppFilter(installedApps: InstalledAppWithEnvironment
     // Siempre guardar el estado de hideMicrosoftApps
     newParams.set('hideMicrosoft', String(advancedFilters.hideMicrosoftApps ?? true));
 
+    // Guardar el estado de showOnlyOutdated si está activado
+    if (advancedFilters.showOnlyOutdated) {
+      newParams.set('showOutdated', 'true');
+    } else {
+      newParams.delete('showOutdated');
+    }
+
     const newUrl = `${window.location.pathname}?${newParams.toString()}`;
     const currentUrl = `${window.location.pathname}${window.location.search}`;
     
@@ -151,8 +165,16 @@ export function useInstalledAppFilter(installedApps: InstalledAppWithEnvironment
       result = result.filter(app => app.publishedAs === advancedFilters.publishedAs);
     }
 
+    // Filtrar solo las aplicaciones desactualizadas si está activado
+    if (advancedFilters.showOnlyOutdated) {
+      result = result.filter(app => {
+        const latestVersion = latestVersions[app.id];
+        return latestVersion && isVersionOutdated(app.version, latestVersion);
+      });
+    }
+
     return result;
-  }, [installedApps, advancedFilters]);
+  }, [installedApps, advancedFilters, latestVersions]);
 
   // Usar el hook genérico para búsqueda
   const {
