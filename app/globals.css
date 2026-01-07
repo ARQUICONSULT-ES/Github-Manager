@@ -114,3 +114,19 @@ input, textarea, select {
 .dark .scrollbar-track-gray-800::-webkit-scrollbar-track {
   background-color: #1f2937;
 }
+
+/* Animaciones para Toast */
+@keyframes slide-in-top {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-top {
+  animation: slide-in-top 0.3s ease-out;
+}

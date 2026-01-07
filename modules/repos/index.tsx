@@ -6,6 +6,8 @@ import { GitHubTokenModal } from "@/modules/repos/components/GitHubTokenModal";
 import type { RepoListHandle } from "@/modules/repos/types";
 import { useRepos } from "@/modules/repos/hooks/useRepos";
 import { useRepoFilter } from "@/modules/repos/hooks/useRepoFilter";
+import { useToast } from "@/modules/shared/hooks/useToast";
+import ToastContainer from "@/modules/shared/components/ToastContainer";
 
 function SkeletonCard() {
   return (
@@ -24,6 +26,7 @@ function SkeletonCard() {
 }
 
 export function ReposPage() {
+  const { toasts, removeToast } = useToast();
   const { repos, isLoading, error, fetchRepos, needsToken } = useRepos();
   const { 
     filteredRepos: filteredAndSortedRepos, 
@@ -307,6 +310,9 @@ export function ReposPage() {
         onClose={() => setShowTokenModal(false)}
         onSave={handleSaveToken}
       />
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

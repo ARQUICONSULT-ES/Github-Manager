@@ -29,6 +29,7 @@ import {
   deleteDependency,
 } from "@/modules/repos/services/dependenciesService";
 import { parseRepoUrl, getRepoName, formatFileSize } from "@/modules/repos/services/utils";
+import { useToast } from "@/modules/shared/hooks/useToast";
 
 const LoadingSpinner = ({ text = "Cargando..." }: { text?: string }) => (
   <div className="flex items-center justify-center h-32">
@@ -52,6 +53,8 @@ const EmptyState = ({ message, icon }: { message: string; icon: React.ReactNode 
 );
 
 export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: DependenciesModalProps) {
+  const { error: showError } = useToast();
+  
   const [settingsData, setSettingsData] = useState<{
     appDependencyProbingPaths: AppDependencyProbingPath[];
   } | null>(null);
@@ -811,8 +814,8 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
         setSaveStep({ status: 'idle' });
         onClose();
       }, 1000);
-    } catch (error) {
-      alert(error instanceof Error ? error.message : "Error al guardar cambios");
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Error al guardar cambios");
       setSaveStep({ status: 'idle' });
     }
   };

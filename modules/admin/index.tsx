@@ -8,8 +8,11 @@ import { useUserFilter } from "@/modules/admin/hooks/useUserFilter";
 import UserList from "@/modules/admin/components/UserList";
 import UserFormModal from "@/modules/admin/components/UserFormModal";
 import type { User } from "@/modules/admin/types";
+import { useToast } from "@/modules/shared/hooks/useToast";
+import ToastContainer from "@/modules/shared/components/ToastContainer";
 
 export function AdminPage() {
+  const { toasts, removeToast } = useToast();
   const { data: session, status } = useSession();
   const router = useRouter();
   const { users, isLoading, isRefreshing, refreshUsers } = useUsers();
@@ -156,6 +159,9 @@ export function AdminPage() {
           </p>
         </div>
       )}
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

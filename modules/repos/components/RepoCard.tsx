@@ -14,6 +14,7 @@ import { languageColors } from "@/modules/repos/types";
 import { useWorkflow } from "@/modules/repos/hooks/useWorkflow";
 import { useRelease } from "@/modules/repos/hooks/useRelease";
 import { getNextMinorVersion, getRelativeTime } from "@/modules/repos/services/utils";
+import { useToast } from "@/modules/shared/hooks/useToast";
 
 export function RepoCard({ 
   repo, 
@@ -22,6 +23,8 @@ export function RepoCard({
   isLoadingRelease: externalIsLoadingRelease = false,
   allRepos = [] 
 }: RepoCardProps) {
+  const { error: showError } = useToast();
+  
   // Estados de UI local
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -100,7 +103,7 @@ export function RepoCard({
         workflowHook.fetchStatus(owner, repoName);
       }, 2000);
     } else {
-      alert(result.error || "Error al ejecutar workflow");
+      showError(result.error || "Error al ejecutar workflow");
     }
   };
 
@@ -158,7 +161,7 @@ export function RepoCard({
         releaseHook.fetchLatest(owner, repoName);
       }, 2000);
     } else {
-      alert(result.error || "Error al crear release");
+      showError(result.error || "Error al crear release");
     }
     
     setIsCreatingRelease(false);

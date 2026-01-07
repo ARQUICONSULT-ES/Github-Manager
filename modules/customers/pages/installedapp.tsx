@@ -7,8 +7,11 @@ import { ApplicationFilterPanel } from "@/modules/customers/components/Applicati
 import { useAllInstalledApps } from "@/modules/customers/hooks/useAllInstalledApps";
 import { useInstalledAppFilter } from "@/modules/customers/hooks/useInstalledAppFilter";
 import { syncAllInstalledApps } from "@/modules/customers/services/installedAppService";
+import { useToast } from "@/modules/shared/hooks/useToast";
+import ToastContainer from "@/modules/shared/components/ToastContainer";
 
 export function InstalledAppsPage() {
+  const { toasts, removeToast, success, error: showError, warning } = useToast();
   const { installedApps, loading, isRefreshing, error, reload } = useAllInstalledApps();
   const {
     filteredApps,
@@ -35,14 +38,14 @@ export function InstalledAppsPage() {
       
       // Mostrar notificación de éxito
       if (result.failed === 0) {
-        alert(`✅ Sincronización completada con éxito: ${result.success}/${result.total} entornos sincronizados`);
+        success(`Sincronización completada con éxito: ${result.success}/${result.total} entornos sincronizados`);
       } else {
         const errorMessages = result.errors.map(e => `- ${e.customerName} (${e.environmentName}): ${e.error}`).join('\n');
-        alert(`⚠️ Sincronización completada con errores:\n✅ Exitosos: ${result.success}\n❌ Fallidos: ${result.failed}\n\nDetalles:\n${errorMessages}`);
+        warning(`Sincronización completada con errores:\nExitosos: ${result.success}\nFallidos: ${result.failed}\n\nDetalles:\n${errorMessages}`);
       }
-    } catch (error) {
-      console.error("Error syncing all installed apps:", error);
-      alert(`❌ Error al sincronizar las instalaciones: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    } catch (err) {
+      console.error("Error syncing all installed apps:", err);
+      showError(`Error al sincronizar las instalaciones: ${err instanceof Error ? err.message : 'Error desconocido'}`);
     } finally {
       setIsSyncingApps(false);
     }
@@ -182,6 +185,9 @@ export function InstalledAppsPage() {
           </p>
         </div>
       )}
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

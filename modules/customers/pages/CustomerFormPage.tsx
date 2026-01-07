@@ -13,6 +13,8 @@ import EnvironmentList from "@/modules/customers/components/EnvironmentList";
 import { EnvironmentListSkeleton } from "@/modules/customers/components/EnvironmentCardSkeleton";
 import { ApplicationsList } from "@/modules/customers/components/ApplicationsList";
 import { ApplicationListSkeleton } from "@/modules/customers/components/ApplicationCardSkeleton";
+import { useToast } from "@/modules/shared/hooks/useToast";
+import ToastContainer from "@/modules/shared/components/ToastContainer";
 
 interface CustomerFormPageProps {
   customerId?: string;
@@ -21,6 +23,7 @@ interface CustomerFormPageProps {
 export function CustomerFormPage({ customerId }: CustomerFormPageProps) {
   const router = useRouter();
   const isEditMode = !!customerId;
+  const { toasts, removeToast, success, error: showError, warning } = useToast();
 
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [formData, setFormData] = useState({
@@ -303,14 +306,14 @@ export function CustomerFormPage({ customerId }: CustomerFormPageProps) {
       
       if (result) {
         if (result.failed === 0) {
-          alert(`✅ Sincronización completada: ${result.success}/${result.total} entornos sincronizados`);
+          success(`Sincronización completada: ${result.success}/${result.total} entornos sincronizados`);
         } else {
           const errorMessages = result.errors.map(e => `- ${e.environmentName}: ${e.error}`).join('\n');
-          alert(`⚠️ Sincronización completada con errores:\n✅ Exitosos: ${result.success}\n❌ Fallidos: ${result.failed}\n\nDetalles:\n${errorMessages}`);
+          warning(`Sincronización completada con errores:\nExitosos: ${result.success}\nFallidos: ${result.failed}\n\nDetalles:\n${errorMessages}`);
         }
       }
-    } catch (error) {
-      alert(`❌ Error al sincronizar las instalaciones: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    } catch (err) {
+      showError(`Error al sincronizar las instalaciones: ${err instanceof Error ? err.message : 'Error desconocido'}`);
     }
   };
 
@@ -788,6 +791,9 @@ export function CustomerFormPage({ customerId }: CustomerFormPageProps) {
         tenant={selectedTenant}
         onSave={handleSaveTenant}
       />
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import type { User, UserFormData, AllowedCustomer } from "@/modules/admin/types";
 import { useUserForm } from "@/modules/admin/hooks/useUserForm";
 import { CustomerSelector } from "./CustomerSelector";
+import { useToast } from "@/modules/shared/hooks/useToast";
 
 interface UserFormModalProps {
   isOpen: boolean;
@@ -20,6 +21,8 @@ export default function UserFormModal({
   onSave,
   protectedMode = false,
 }: UserFormModalProps) {
+  const { warning } = useToast();
+  
   const [formData, setFormData] = useState<UserFormData>({
     name: "",
     email: "",
@@ -100,7 +103,7 @@ export default function UserFormModal({
       } else {
         // Crear nuevo usuario
         if (!formData.password || formData.password.trim() === "") {
-          alert("La contraseña es obligatoria para crear un nuevo usuario");
+          warning("La contraseña es obligatoria para crear un nuevo usuario");
           return;
         }
 

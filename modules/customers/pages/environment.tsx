@@ -8,8 +8,11 @@ import type { EnvironmentListRef } from "@/modules/customers/components/Environm
 import { useAllEnvironments } from "@/modules/customers/hooks/useAllEnvironments";
 import { useEnvironmentFilter } from "@/modules/customers/hooks/useEnvironmentFilter";
 import { useTenants } from "@/modules/customers/hooks/useTenants";
+import { useToast } from "@/modules/shared/hooks/useToast";
+import ToastContainer from "@/modules/shared/components/ToastContainer";
 
 export function EnvironmentsPage() {
+  const { toasts, removeToast, success, error: showError, warning } = useToast();
   const { tenants, fetchTenants } = useTenants();
   const { environments, loading, isRefreshing, error, reload } = useAllEnvironments();
   const {
@@ -39,14 +42,14 @@ export function EnvironmentsPage() {
       await fetchTenants();
       
       if (result.failed === 0) {
-        alert(`✅ Sincronización completada con éxito: ${result.success}/${result.total} tenants sincronizados`);
+        success(`Sincronización completada con éxito: ${result.success}/${result.total} tenants sincronizados`);
       } else {
         const errorMessages = result.errors.map(e => `- ${e.customerName}: ${e.error}`).join('\n');
-        alert(`⚠️ Sincronización completada con errores:\n✅ Exitosos: ${result.success}\n❌ Fallidos: ${result.failed}\n\nDetalles:\n${errorMessages}`);
+        warning(`Sincronización completada con errores:\nExitosos: ${result.success}\nFallidos: ${result.failed}\n\nDetalles:\n${errorMessages}`);
       }
-    } catch (error) {
-      console.error("Error syncing all environments:", error);
-      alert(`❌ Error al sincronizar los entornos: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    } catch (err) {
+      console.error("Error syncing all environments:", err);
+      showError(`Error al sincronizar los entornos: ${err instanceof Error ? err.message : 'Error desconocido'}`);
     } finally {
       setIsSyncingAll(false);
     }
@@ -181,6 +184,9 @@ export function EnvironmentsPage() {
           </p>
         </div>
       )}
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }
