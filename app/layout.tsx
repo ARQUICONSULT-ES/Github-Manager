@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CEM - Customer Environment Manager",
+  title: "CENTRA",
   description: "Gestiona tus clientes de Business Central y repositorios de Github",
 };
 

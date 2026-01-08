@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
         },
         body: JSON.stringify({
           title: "Update CI/CD Dependencies",
-          body: `This PR updates the \`appDependencyProbingPaths\` in \`.AL-Go/settings.json\`.\n\n**Changes:**\n- Updated dependencies configuration\n\nGenerated automatically by Github Manager.`,
+          body: `This PR updates the \`appDependencyProbingPaths\` in \`.AL-Go/settings.json\`.\n\n**Changes:**\n- Updated dependencies configuration\n\nGenerated automatically by CENTRA.`,
           head: branchName,
           base: baseBranch,
         }),
