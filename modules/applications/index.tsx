@@ -63,7 +63,7 @@ export function ApplicationsPage() {
           </button>
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          {applications.length} aplicaciones en catálogo
+          {applications.length} aplicaciones
         </p>
       </div>
 

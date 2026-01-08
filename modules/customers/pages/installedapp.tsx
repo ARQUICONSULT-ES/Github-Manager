@@ -135,7 +135,7 @@ export function InstalledAppsPage() {
           </button>
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          {installedApps.length} instalaciones en total
+          {installedApps.length} instalaciones
         </p>
       </div>
 
