@@ -196,6 +196,48 @@ export function RepoCard({
     }
   };
 
+  const getNextPrereleaseNumber = async (owner: string, repo: string, version: string): Promise<number> => {
+    try {
+      const res = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/releases`,
+        {
+          headers: {
+            Accept: "application/vnd.github.v3+json",
+          },
+          cache: "no-store",
+        }
+      );
+
+      if (res.ok) {
+        const releases = await res.json();
+        
+        // Filtrar prereleases que coincidan con la versión actual
+        // Buscar patrones como: v1.2-preview.1, v1.2-preview.2, etc.
+        const versionPattern = new RegExp(`^${version.replace(/\./g, '\\.')}-preview\\.(\\d+)$`);
+        
+        const existingPrereleases = releases
+          .filter((r: any) => r.prerelease === true && versionPattern.test(r.tag_name))
+          .map((r: any) => {
+            const match = r.tag_name.match(versionPattern);
+            return match ? parseInt(match[1], 10) : 0;
+          });
+
+        // Encontrar el número máximo y sumarle 1
+        if (existingPrereleases.length > 0) {
+          return Math.max(...existingPrereleases) + 1;
+        }
+        
+        // Si no hay prereleases para esta versión, comenzar en 1
+        return 1;
+      }
+      
+      return 1;
+    } catch (error) {
+      console.error("Error al obtener número de prerelease:", error);
+      return 1;
+    }
+  };
+
   const fetchBranches = async (owner: string, repo: string) => {
     setIsLoadingBranches(true);
     try {
@@ -282,14 +324,11 @@ export function RepoCard({
     const [owner, repoName] = repo.full_name.split("/");
     const newVersion = getNextMinorVersion(latestRelease?.tag_name ?? null);
     
-    // Generar identificador único para la prerelease basado en fecha y hora
-    const now = new Date();
-    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
-    const timeStr = now.toTimeString().slice(0, 5).replace(/:/g, ''); // HHMM
-    const prereleaseId = `${dateStr}.${timeStr}`;
+    // Obtener el número de prerelease para esta versión
+    const prereleaseNumber = await getNextPrereleaseNumber(owner, repoName, newVersion);
     
-    const prereleaseName = `${newVersion}-preview.${prereleaseId}`;
-    const prereleaseTag = `${newVersion}.0-preview.${prereleaseId}`;
+    const prereleaseName = `${newVersion}-preview.${prereleaseNumber}`;
+    const prereleaseTag = `${newVersion}.0-preview.${prereleaseNumber}`;
     
     const result = await workflowHook.trigger({
       owner,
