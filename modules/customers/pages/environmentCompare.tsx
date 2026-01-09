@@ -69,6 +69,7 @@ export function EnvironmentComparePage({
   const [loading, setLoading] = useState(true);
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
   const [hideMicrosoftApps, setHideMicrosoftApps] = useState(true);
+  const [hideMatching, setHideMatching] = useState(false);
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [changingSide, setChangingSide] = useState<'left' | 'right'>('left');
   const [availableEnvironments, setAvailableEnvironments] = useState<Array<{
@@ -144,11 +145,24 @@ export function EnvironmentComparePage({
       });
     });
 
-    // Sort by: 1) both environments, 2) only left, 3) only right, then by name
+    // Sort by: 1) matching apps, 2) apps with differences, 3) only left, 4) only right, then by name
     allApps.sort((a, b) => {
-      // First sort by category
-      const aCategory = a.onlyInLeft ? 1 : a.onlyInRight ? 2 : 0;
-      const bCategory = b.onlyInLeft ? 1 : b.onlyInRight ? 2 : 0;
+      // Determine categories
+      const aHasDiff = a.versionDiff || a.nameDiff || a.publisherDiff || a.publishedAsDiff;
+      const bHasDiff = b.versionDiff || b.nameDiff || b.publisherDiff || b.publishedAsDiff;
+      
+      let aCategory: number;
+      let bCategory: number;
+      
+      if (a.onlyInLeft) aCategory = 2;
+      else if (a.onlyInRight) aCategory = 3;
+      else if (aHasDiff) aCategory = 1;
+      else aCategory = 0; // matching
+      
+      if (b.onlyInLeft) bCategory = 2;
+      else if (b.onlyInRight) bCategory = 3;
+      else if (bHasDiff) bCategory = 1;
+      else bCategory = 0; // matching
       
       if (aCategory !== bCategory) {
         return aCategory - bCategory;
@@ -356,7 +370,7 @@ export function EnvironmentComparePage({
   const renderAppCard = (app: InstalledApp | undefined, highlightColor?: string, environmentName?: string, hasDiff?: {name?: boolean, publisher?: boolean, publishedAs?: boolean, version?: boolean}) => {
     if (!app) {
       return (
-        <div className="h-full p-2 rounded border border-dashed border-red-200 dark:border-red-800 bg-red-50/20 dark:bg-red-900/10 flex items-center justify-center">
+        <div className="h-full p-2 rounded bg-red-50/20 dark:bg-red-900/10 flex items-center justify-center">
           <span className="text-xs text-red-400 dark:text-red-500 font-medium">No instalada en {environmentName}</span>
         </div>
       );
@@ -364,37 +378,30 @@ export function EnvironmentComparePage({
 
     return (
       <div 
-        className={`p-2 rounded border ${
-          highlightColor || 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900'
+        className={`p-2 rounded ${
+          highlightColor || 'bg-white dark:bg-gray-900'
         }`}
       >
-        <div className="flex items-start justify-between gap-2 mb-1">
-          <h4 className={`font-semibold text-xs flex-1 leading-tight ${
-            hasDiff?.name ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'
-          }`}>
-            {app.name}
-          </h4>
-          <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded flex-shrink-0 ${
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <span className={`px-1.5 py-0.5 text-xs font-medium rounded ${
             hasDiff?.publishedAs ? 'bg-orange-200 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300' : getPublishedAsColor(app.publishedAs)
           }`}>
             {app.publishedAs}
           </span>
-        </div>
-        <div className="space-y-0.5 text-[10px]">
-          <p className={`truncate ${
-            hasDiff?.publisher ? 'text-orange-600 dark:text-orange-400 font-semibold' : 'text-gray-600 dark:text-gray-400'
-          }`}>{app.publisher}</p>
-          <p className={`font-mono font-semibold ${
-            hasDiff?.version ? 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 px-1 py-0.5 rounded' : 'text-gray-900 dark:text-white'
+          <p className={`font-mono text-sm font-semibold ${
+            hasDiff?.version ? 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 px-1.5 py-0.5 rounded' : 'text-gray-900 dark:text-white'
           }`}>{app.version}</p>
         </div>
       </div>
     );
   };
 
-  // Filter apps based on hideMicrosoftApps
+  // Filter apps based on hideMicrosoftApps and hideMatching
   const filteredApps = comparison?.allApps.filter(app => {
     if (hideMicrosoftApps && app.publisher.toLowerCase() === 'microsoft') {
+      return false;
+    }
+    if (hideMatching && !app.onlyInLeft && !app.onlyInRight && !app.versionDiff && !app.nameDiff && !app.publisherDiff && !app.publishedAsDiff) {
       return false;
     }
     return true;
@@ -405,7 +412,7 @@ export function EnvironmentComparePage({
     onlyInLeft: filteredApps.filter(app => app.onlyInLeft).length,
     onlyInRight: filteredApps.filter(app => app.onlyInRight).length,
     inBoth: filteredApps.filter(app => !app.onlyInLeft && !app.onlyInRight).length,
-    anyDiff: filteredApps.filter(app => app.versionDiff || app.nameDiff || app.publisherDiff || app.publishedAsDiff).length
+    inBothWithDiff: filteredApps.filter(app => !app.onlyInLeft && !app.onlyInRight && (app.versionDiff || app.nameDiff || app.publisherDiff || app.publishedAsDiff)).length
   };
 
   return (
@@ -440,74 +447,63 @@ export function EnvironmentComparePage({
       {/* Comparison Summary */}
       {comparison && (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-10 h-10 bg-red-500 rounded flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                 </div>
                 <div>
-                  <p className="text-xl font-bold text-blue-900 dark:text-blue-100">
+                  <p className="text-2xl font-bold text-red-900 dark:text-red-100">
                     {stats.onlyInLeft}
                   </p>
-                  <p className="text-[10px] text-blue-700 dark:text-blue-300">
+                  <p className="text-xs text-red-700 dark:text-red-300">
                     Solo izquierda
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-green-500 rounded flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-10 h-10 bg-green-500 rounded flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <div>
-                  <p className="text-xl font-bold text-green-900 dark:text-green-100">
-                    {stats.inBoth}
-                  </p>
-                  <p className="text-[10px] text-green-700 dark:text-green-300">
+                <div className="flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-2xl font-bold text-green-900 dark:text-green-100">
+                      {stats.inBoth}
+                    </p>
+                    {stats.inBothWithDiff > 0 && (
+                      <p className="text-[10px] text-orange-600 dark:text-orange-400 font-medium">
+                        ({stats.inBothWithDiff} diferentes)
+                      </p>
+                    )}
+                  </div>
+                  <p className="text-xs text-green-700 dark:text-green-300">
                     En ambos
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3">
+            <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-purple-500 rounded flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-10 h-10 bg-red-500 rounded flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
                 </div>
                 <div>
-                  <p className="text-xl font-bold text-purple-900 dark:text-purple-100">
+                  <p className="text-2xl font-bold text-red-900 dark:text-red-100">
                     {stats.onlyInRight}
                   </p>
-                  <p className="text-[10px] text-purple-700 dark:text-purple-300">
+                  <p className="text-xs text-red-700 dark:text-red-300">
                     Solo derecha
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-orange-500 rounded flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-orange-900 dark:text-orange-100">
-                    {stats.anyDiff}
-                  </p>
-                  <p className="text-[10px] text-orange-700 dark:text-orange-300">
-                    Con diferencias
                   </p>
                 </div>
               </div>
@@ -516,25 +512,46 @@ export function EnvironmentComparePage({
 
           {/* Filter */}
           <div className="flex items-center justify-between">
-            <label className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-md border cursor-pointer transition-colors ${
-              hideMicrosoftApps
-                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-600"
-                : "border-gray-300 bg-white hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800"
-            }`}>
-              <input
-                type="checkbox"
-                checked={hideMicrosoftApps}
-                onChange={(e) => setHideMicrosoftApps(e.target.checked)}
-                className="w-4 h-4 text-blue-600 bg-white border-blue-500 rounded focus:ring-blue-500 focus:ring-2"
-              />
-              <span className={`text-xs font-medium ${
+            <div className="flex items-center gap-3">
+              <label className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-md border cursor-pointer transition-colors ${
                 hideMicrosoftApps
-                  ? "text-blue-700 dark:text-blue-300"
-                  : "text-gray-700 dark:text-gray-300"
+                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-600"
+                  : "border-gray-300 bg-white hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800"
               }`}>
-                Ocultar apps Microsoft
-              </span>
-            </label>
+                <input
+                  type="checkbox"
+                  checked={hideMicrosoftApps}
+                  onChange={(e) => setHideMicrosoftApps(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 bg-white border-blue-500 rounded focus:ring-blue-500 focus:ring-2"
+                />
+                <span className={`text-xs font-medium ${
+                  hideMicrosoftApps
+                    ? "text-blue-700 dark:text-blue-300"
+                    : "text-gray-700 dark:text-gray-300"
+                }`}>
+                  Ocultar apps Microsoft
+                </span>
+              </label>
+              <label className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-md border cursor-pointer transition-colors ${
+                hideMatching
+                  ? "border-green-500 bg-green-50 dark:bg-green-900/20 dark:border-green-600"
+                  : "border-gray-300 bg-white hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800"
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={hideMatching}
+                  onChange={(e) => setHideMatching(e.target.checked)}
+                  className="w-4 h-4 text-green-600 bg-white border-green-500 rounded focus:ring-green-500 focus:ring-2"
+                />
+                <span className={`text-xs font-medium ${
+                  hideMatching
+                    ? "text-green-700 dark:text-green-300"
+                    : "text-gray-700 dark:text-gray-300"
+                }`}>
+                  Ocultar coincidentes
+                </span>
+              </label>
+            </div>
             <p className="text-xs text-gray-600 dark:text-gray-400">
               {filteredApps.length} aplicaciones
             </p>
@@ -545,11 +562,7 @@ export function EnvironmentComparePage({
       {/* Detailed Comparison - Unified List */}
       {comparison && filteredApps.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
-            Comparación Detallada
-          </h3>
-          
-          {/* Header */}
+            {/* Header */}
           <div className="grid grid-cols-[2fr_1fr_1fr] gap-3 px-3 pb-2 border-b border-gray-200 dark:border-gray-700">
             <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">Aplicación</div>
             <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">{leftEnvironment.name}</div>
@@ -562,27 +575,32 @@ export function EnvironmentComparePage({
               let highlightColor = '';
               const hasDiff = app.versionDiff || app.nameDiff || app.publisherDiff || app.publishedAsDiff;
               
-              if (app.onlyInLeft) {
-                highlightColor = 'bg-blue-50/50 dark:bg-blue-900/10';
-              } else if (app.onlyInRight) {
-                highlightColor = 'bg-purple-50/50 dark:bg-purple-900/10';
+              if (app.onlyInLeft || app.onlyInRight) {
+                // Apps only in one environment: light red
+                highlightColor = 'bg-red-100/70 dark:bg-red-900/20';
               } else if (hasDiff) {
-                highlightColor = 'bg-orange-50/50 dark:bg-orange-900/10';
+                // Apps with differences: orange
+                highlightColor = 'bg-orange-100/70 dark:bg-orange-900/20';
+              } else {
+                // Matching apps: light green
+                highlightColor = 'bg-green-100/50 dark:bg-green-900/15';
               }
 
               return (
                 <div 
                   key={app.id}
-                  className={`grid grid-cols-[2fr_1fr_1fr] gap-3 p-2 rounded border border-gray-200 dark:border-gray-700 ${highlightColor}`}
+                  className={`grid grid-cols-[2fr_1fr_1fr] gap-3 p-2 rounded ${highlightColor}`}
                 >
                   {/* App Name Column */}
                   <div className="flex flex-col justify-center min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <h4 className="font-semibold text-xs text-gray-900 dark:text-white truncate">
-                        {app.name}
-                      </h4>
-                    </div>
-                    <p className="text-[10px] text-gray-600 dark:text-gray-400 truncate">{app.publisher}</p>
+                    <h4 className={`font-semibold text-sm truncate mb-0.5 ${
+                      app.nameDiff ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'
+                    }`}>
+                      {app.name}
+                    </h4>
+                    <p className={`text-xs truncate ${
+                      app.publisherDiff ? 'text-orange-600 dark:text-orange-400 font-semibold' : 'text-gray-600 dark:text-gray-400'
+                    }`}>{app.publisher}</p>
                   </div>
 
                   {/* Left Environment */}
