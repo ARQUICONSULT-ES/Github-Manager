@@ -128,22 +128,22 @@ export function useInstalledAppFilter(installedApps: InstalledAppWithEnvironment
     }
 
     if (advancedFilters.publisher) {
-      const publishers = advancedFilters.publisher.split(',');
+      const publishers = advancedFilters.publisher.split('|');
       result = result.filter(app => publishers.includes(app.publisher));
     }
 
     if (advancedFilters.customerName) {
-      const customers = advancedFilters.customerName.split(',');
+      const customers = advancedFilters.customerName.split('|');
       result = result.filter(app => customers.includes(app.customerName));
     }
 
     if (advancedFilters.environmentName) {
-      const environments = advancedFilters.environmentName.split(',');
+      const environments = advancedFilters.environmentName.split('|');
       result = result.filter(app => environments.includes(app.environmentName));
     }
 
     if (advancedFilters.environmentType) {
-      const types = advancedFilters.environmentType.split(',');
+      const types = advancedFilters.environmentType.split('|');
       result = result.filter(app => app.environmentType && types.includes(app.environmentType));
     }
 

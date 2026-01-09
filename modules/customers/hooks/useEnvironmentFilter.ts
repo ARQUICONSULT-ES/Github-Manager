@@ -112,7 +112,7 @@ export function useEnvironmentFilter(environments: EnvironmentWithCustomer[]) {
 
     // Si hay un filtro de estado específico, aplicarlo
     if (advancedFilters.status) {
-      const statuses = advancedFilters.status.split(',');
+      const statuses = advancedFilters.status.split('|');
       result = result.filter(env => statuses.includes(env.status || ''));
     } else {
       // Si no hay filtro de estado, excluir softdeleted por defecto
@@ -120,22 +120,22 @@ export function useEnvironmentFilter(environments: EnvironmentWithCustomer[]) {
     }
 
     if (advancedFilters.type) {
-      const types = advancedFilters.type.split(',');
+      const types = advancedFilters.type.split('|');
       result = result.filter(env => env.type && types.includes(env.type));
     }
 
     if (advancedFilters.customer) {
-      const customers = advancedFilters.customer.split(',');
+      const customers = advancedFilters.customer.split('|');
       result = result.filter(env => customers.includes(env.customerName));
     }
 
     if (advancedFilters.platformVersion) {
-      const versions = advancedFilters.platformVersion.split(',');
+      const versions = advancedFilters.platformVersion.split('|');
       result = result.filter(env => env.platformVersion && versions.includes(env.platformVersion));
     }
 
     if (advancedFilters.applicationVersion) {
-      const versions = advancedFilters.applicationVersion.split(',');
+      const versions = advancedFilters.applicationVersion.split('|');
       result = result.filter(env => env.applicationVersion && versions.includes(env.applicationVersion));
     }
 

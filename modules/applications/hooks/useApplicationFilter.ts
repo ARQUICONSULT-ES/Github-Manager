@@ -96,12 +96,12 @@ export function useApplicationFilter(applications: Application[]) {
 
     // Filtros avanzados
     if (advancedFilters.name) {
-      const names = advancedFilters.name.split(',');
+      const names = advancedFilters.name.split('|');
       result = result.filter(app => names.includes(app.name));
     }
 
     if (advancedFilters.publisher) {
-      const publishers = advancedFilters.publisher.split(',');
+      const publishers = advancedFilters.publisher.split('|');
       result = result.filter(app => publishers.includes(app.publisher));
     }
 

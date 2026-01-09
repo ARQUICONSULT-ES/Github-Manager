@@ -22,17 +22,8 @@ export default function EnvironmentCard({ environment }: EnvironmentCardProps) {
     return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400';
   };
 
-  const handleApplicationsClick = () => {
-    const params = new URLSearchParams();
-    params.set('filterCustomer', environment.customerName);
-    params.set('filterEnvironment', environment.name);
-    if (environment.type) {
-      params.set('filterEnvType', environment.type);
-    }
-    router.push(`/installed-apps?${params.toString()}`);
-  };
-
-  const handleOutdatedAppsClick = () => {
+  const handleOutdatedAppsClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     const params = new URLSearchParams();
     params.set('filterCustomer', environment.customerName);
     params.set('filterEnvironment', environment.name);
@@ -42,9 +33,27 @@ export default function EnvironmentCard({ environment }: EnvironmentCardProps) {
     params.set('showOutdated', 'true');
     router.push(`/installed-apps?${params.toString()}`);
   };
+
+  const handleApplicationsClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const params = new URLSearchParams();
+    params.set('filterCustomer', environment.customerName);
+    params.set('filterEnvironment', environment.name);
+    if (environment.type) {
+      params.set('filterEnvType', environment.type);
+    }
+    router.push(`/installed-apps?${params.toString()}`);
+  };
+
+  const handleCardClick = () => {
+    router.push(`/environments/${encodeURIComponent(environment.tenantId)}/${encodeURIComponent(environment.name)}`);
+  };
   
   return (
-    <div className={`group relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 ${isDeleted ? 'opacity-60 bg-red-50 dark:bg-red-900/10' : ''}`}>
+    <div 
+      onClick={handleCardClick}
+      className={`group relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 transition-all shadow-sm hover:shadow-md hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer ${isDeleted ? 'opacity-60 bg-red-50 dark:bg-red-900/10' : ''}`}
+    >
       {/* Tipo de entorno en esquina superior derecha */}
       {environment.type && (
         <div className="absolute top-3 right-3">

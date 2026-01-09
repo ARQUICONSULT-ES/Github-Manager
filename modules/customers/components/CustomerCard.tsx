@@ -9,7 +9,8 @@ export function CustomerCard({ customer, onEdit }: CustomerCardProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  const handleMenuToggle = () => {
+  const handleMenuToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setIsMenuOpen(!isMenuOpen);
   };
 
@@ -18,12 +19,20 @@ export function CustomerCard({ customer, onEdit }: CustomerCardProps) {
     setIsMenuOpen(false);
   };
 
-  const handleEnvironmentsClick = () => {
+  const handleEnvironmentsClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     router.push(`/environments?filterCustomer=${encodeURIComponent(customer.customerName)}`);
   };
 
+  const handleCardClick = () => {
+    handleEdit();
+  };
+
   return (
-    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
+    <div 
+      onClick={handleCardClick}
+      className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden transition-all shadow-sm hover:shadow-md hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer"
+    >
       {/* Header con nombre, imagen y menú */}
       <div className="p-4 flex items-start gap-3">
         {/* Imagen del cliente */}
@@ -47,12 +56,9 @@ export function CustomerCard({ customer, onEdit }: CustomerCardProps) {
 
         {/* Información del cliente */}
         <div className="flex-1 min-w-0">
-          <button
-            onClick={handleEdit}
-            className="font-semibold text-gray-900 dark:text-white text-base truncate text-left hover:text-blue-600 dark:hover:text-blue-400 transition-colors block w-full cursor-pointer"
-          >
+          <h3 className="font-semibold text-gray-900 dark:text-white text-base truncate">
             {customer.customerName}
-          </button>
+          </h3>
           
           {/* Contadores con estilo del EnvironmentCard */}
           <div className="mt-2 grid grid-cols-2 gap-3">

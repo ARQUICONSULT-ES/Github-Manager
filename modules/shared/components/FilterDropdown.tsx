@@ -78,6 +78,30 @@ export function FilterDropdown({
     }
   }, [isSearchFocused, viewportHeight]);
 
+  // Bloquear scroll del body en móvil cuando el dropdown está abierto
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) {
+      // Guardar el scroll actual
+      const scrollY = window.scrollY;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      document.body.style.overflow = 'hidden';
+
+      return () => {
+        // Restaurar scroll al cerrar
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+        document.body.style.overflow = '';
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [isOpen]);
+
   // NO hacer focus automático en el buscador en móvil
   // Solo hacer focus en desktop
   useEffect(() => {
@@ -90,8 +114,8 @@ export function FilterDropdown({
     }
   }, [isOpen]);
 
-  // Parsear valores seleccionados (separados por coma)
-  const selectedValues = value ? value.split(',') : [];
+  // Parsear valores seleccionados (separados por pipe)
+  const selectedValues = value ? value.split('|') : [];
   const hasValue = selectedValues.length > 0;
 
   // Filtrar opciones según búsqueda
@@ -111,7 +135,7 @@ export function FilterDropdown({
       newValues = [...selectedValues, optionValue];
     }
     
-    onChange(newValues.join(','));
+    onChange(newValues.join('|'));
   };
 
   // Seleccionar todos
@@ -165,9 +189,9 @@ export function FilterDropdown({
 
       {isOpen && (
         <>
-          {/* Overlay para móvil */}
+          {/* Overlay sólido para móvil - bloquea el fondo */}
           <div 
-            className="fixed inset-0 bg-black/50 z-40 md:hidden"
+            className="fixed inset-0 bg-white dark:bg-gray-900 z-40 md:hidden"
             onClick={() => {
               setIsOpen(false);
               setSearchQuery("");
@@ -178,15 +202,14 @@ export function FilterDropdown({
           {/* Dropdown - Pantalla completa en móvil, normal en desktop */}
           <div 
             ref={contentRef}
-            className="fixed md:absolute inset-x-0 md:inset-auto md:z-50 md:mt-1 md:w-80 z-50 bg-white dark:bg-gray-800 border-t md:border border-gray-200 dark:border-gray-700 md:rounded-md shadow-lg rounded-t-2xl md:rounded-t-md md:max-h-none flex flex-col md:bottom-auto"
+            className="fixed md:absolute inset-0 md:inset-auto md:top-full md:left-0 md:right-auto md:z-50 md:mt-1 md:w-80 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 md:rounded-md shadow-lg flex flex-col md:max-h-96"
             style={{
-              // En móvil: ajustar al viewport visible (considerando teclado)
-              bottom: 0,
-              maxHeight: viewportHeight ? `${Math.min(viewportHeight * 0.8, window.innerHeight * 0.8)}px` : '80vh',
+              // En móvil: usar el viewport height disponible (considerando teclado)
+              height: window.innerWidth < 768 ? (viewportHeight ? `${viewportHeight}px` : '100vh') : 'auto',
             }}
           >
             {/* Header para móvil - con check de confirmar en lugar de X */}
-            <div className="md:hidden flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="md:hidden flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
               <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                 {label}
                 {hasValue && (
@@ -210,8 +233,8 @@ export function FilterDropdown({
               </button>
             </div>
             
-            {/* Buscador - siempre visible pero no auto-focused en móvil */}
-            <div className="p-3 md:p-2 border-b border-gray-200 dark:border-gray-700">
+            {/* Buscador - fijo en la parte superior */}
+            <div className="p-3 md:p-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
               <input
                 ref={searchInputRef}
                 type="text"
@@ -225,31 +248,31 @@ export function FilterDropdown({
               />
             </div>
 
-            {/* Lista de opciones con scrollbar oscuro */}
-            <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-gray-700 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-200 dark:scrollbar-track-gray-800 md:max-h-60 min-h-[200px]">
+            {/* Lista de opciones con scrollbar oscuro - ocupa el resto del espacio */}
+            <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-gray-700 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-200 dark:scrollbar-track-gray-800 md:max-h-60">
               {/* Opción "Todos" */}
               <button
                 onClick={() => {
                   selectAll();
                 }}
-                className={`w-full px-3 py-2.5 md:py-2 text-left text-sm md:text-xs transition-colors flex items-center gap-2 ${
+                className={`w-full px-3 py-3.5 md:py-2 text-left text-sm md:text-xs transition-colors flex items-center gap-3 ${
                   !hasValue
                     ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 font-medium"
                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
                 }`}
               >
-                <div className={`w-5 h-5 md:w-4 md:h-4 rounded border flex items-center justify-center ${
+                <div className={`w-6 h-6 md:w-4 md:h-4 rounded border flex items-center justify-center flex-shrink-0 ${
                   !hasValue
                     ? "bg-blue-600 border-blue-600"
                     : "border-gray-300 dark:border-gray-600"
                 }`}>
                   {!hasValue && (
-                    <svg className="w-3.5 h-3.5 md:w-3 md:h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 md:w-3 md:h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                     </svg>
                   )}
                 </div>
-                {placeholder}
+                <span>{placeholder}</span>
               </button>
               
               {/* Opciones individuales filtradas */}
@@ -260,19 +283,19 @@ export function FilterDropdown({
                     <button
                       key={option}
                       onClick={() => toggleValue(option)}
-                      className={`w-full px-3 py-2.5 md:py-2 text-left text-sm md:text-xs transition-colors flex items-center gap-2 ${
+                      className={`w-full px-3 py-3.5 md:py-2 text-left text-sm md:text-xs transition-colors flex items-center gap-3 ${
                         isSelected
                           ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 font-medium"
                           : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                       }`}
                     >
-                      <div className={`w-5 h-5 md:w-4 md:h-4 rounded border flex items-center justify-center flex-shrink-0 ${
+                      <div className={`w-6 h-6 md:w-4 md:h-4 rounded border flex items-center justify-center flex-shrink-0 ${
                         isSelected
                           ? "bg-blue-600 border-blue-600"
                           : "border-gray-300 dark:border-gray-600"
                       }`}>
                         {isSelected && (
-                          <svg className="w-3.5 h-3.5 md:w-3 md:h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4 md:w-3 md:h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                           </svg>
                         )}
