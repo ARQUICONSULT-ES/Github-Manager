@@ -11,7 +11,7 @@ export default function ApplicationCard({ application, onClick }: ApplicationCar
   return (
     <div
       onClick={() => onClick(application)}
-      className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition-all hover:shadow-md hover:border-blue-300 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-600 overflow-hidden"
+      className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-3 transition-all shadow-sm hover:shadow-md hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-500 overflow-hidden"
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-2">
