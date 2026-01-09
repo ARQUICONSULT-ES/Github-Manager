@@ -60,7 +60,7 @@ export function EnvironmentDetailPage({ tenantId, environmentName }: Environment
     applicationVersion?: string | null;
     platformVersion?: string | null;
     locationName?: string | null;
-    installedAppsCount: number;
+    nonMicrosoftAppsCount: number;
   }>>([]);
   const [loadingEnvironments, setLoadingEnvironments] = useState(false);
   const [filters, setFilters] = useState<AppFilters>({
@@ -130,7 +130,7 @@ export function EnvironmentDetailPage({ tenantId, environmentName }: Environment
           applicationVersion: env.applicationVersion,
           platformVersion: env.platformVersion,
           locationName: env.locationName,
-          installedAppsCount: env.installedApps?.length || 0
+          nonMicrosoftAppsCount: env.installedApps?.filter((app: any) => app.publisher.toLowerCase() !== 'microsoft').length || 0
         })));
       }
     } catch (error) {
@@ -778,7 +778,7 @@ export function EnvironmentDetailPage({ tenantId, environmentName }: Environment
                               <svg className="w-3 h-3 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                               </svg>
-                              <span>{env.installedAppsCount} apps</span>
+                              <span>{env.nonMicrosoftAppsCount} apps</span>
                             </div>
                           </div>
                         </div>
