@@ -114,8 +114,8 @@ export function FilterDropdown({
     }
   }, [isOpen]);
 
-  // Parsear valores seleccionados (separados por coma)
-  const selectedValues = value ? value.split(',') : [];
+  // Parsear valores seleccionados (separados por pipe)
+  const selectedValues = value ? value.split('|') : [];
   const hasValue = selectedValues.length > 0;
 
   // Filtrar opciones según búsqueda
@@ -135,7 +135,7 @@ export function FilterDropdown({
       newValues = [...selectedValues, optionValue];
     }
     
-    onChange(newValues.join(','));
+    onChange(newValues.join('|'));
   };
 
   // Seleccionar todos
