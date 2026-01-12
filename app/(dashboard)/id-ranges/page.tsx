@@ -69,6 +69,10 @@ export default function IdRangesPage() {
     content: string;
   }>({ visible: false, x: 0, y: 0, content: "" });
   
+  // Estado para drag scroll
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const labelPanelRef = useRef<HTMLDivElement>(null);
@@ -82,6 +86,42 @@ export default function IdRangesPage() {
     } else {
       labelPanelRef.current.scrollTop = scrollContainerRef.current.scrollTop;
     }
+  }, []);
+
+  // Manejar drag scroll
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    // Solo iniciar drag con el botón izquierdo y si no es un elemento interactivo
+    if (e.button !== 0 || (e.target as HTMLElement).closest('button, input, a')) return;
+    
+    setIsDragging(true);
+    setDragStart({
+      x: e.clientX + (scrollContainerRef.current?.scrollLeft || 0),
+      y: e.clientY + (scrollContainerRef.current?.scrollTop || 0),
+    });
+    e.preventDefault();
+  }, []);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDragging || !scrollContainerRef.current) return;
+    
+    const deltaX = dragStart.x - e.clientX;
+    const deltaY = dragStart.y - e.clientY;
+    
+    scrollContainerRef.current.scrollLeft = deltaX;
+    scrollContainerRef.current.scrollTop = deltaY;
+    
+    // Sincronizar el scroll vertical con el panel de etiquetas
+    if (labelPanelRef.current) {
+      labelPanelRef.current.scrollTop = deltaY;
+    }
+  }, [isDragging, dragStart]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsDragging(false);
   }, []);
 
   // Cargar datos
@@ -170,17 +210,41 @@ export default function IdRangesPage() {
     // Manejar zoom con trackpad (pinch gesture) o Ctrl + rueda del ratón
     const handleWheelZoom = (e: WheelEvent) => {
       // Detectar gesto de pinch en trackpad (Ctrl + wheel)
-      if (e.ctrlKey) {
+      if (e.ctrlKey && scrollContainerRef.current) {
         e.preventDefault();
         
-        // deltaY positivo = zoom out, negativo = zoom in
+        const scrollContainer = scrollContainerRef.current;
+        const rect = scrollContainer.getBoundingClientRect();
+        
+        // Posición del ratón relativa al contenedor
+        const mouseX = e.clientX - rect.left;
+        
+        // Posición actual del scroll
+        const scrollLeft = scrollContainer.scrollLeft;
+        
+        // Calcular la posición del ratón en el contenido (antes del zoom)
+        const mousePositionInContent = scrollLeft + mouseX;
+        const mouseRatioInContent = mousePositionInContent / (scrollContainer.scrollWidth);
+        
         // Aplicar zoom suave basado en el delta
         setZoomScale(prev => {
           const delta = -e.deltaY; // Invertir para que sea intuitivo
           const zoomFactor = 1 + (delta * 0.005); // Factor suave
           const newScale = prev * zoomFactor;
           // Limitar entre 1x y MAX_ZOOM
-          return Math.min(Math.max(newScale, 1), MAX_ZOOM);
+          const clampedScale = Math.min(Math.max(newScale, 1), MAX_ZOOM);
+          
+          // Ajustar el scroll después del zoom para mantener el punto bajo el cursor
+          setTimeout(() => {
+            if (scrollContainerRef.current) {
+              const newScrollWidth = scrollContainerRef.current.scrollWidth;
+              const newMousePositionInContent = mouseRatioInContent * newScrollWidth;
+              const newScrollLeft = newMousePositionInContent - mouseX;
+              scrollContainerRef.current.scrollLeft = Math.max(0, newScrollLeft);
+            }
+          }, 0);
+          
+          return clampedScale;
         });
       }
     };
@@ -285,6 +349,8 @@ export default function IdRangesPage() {
 
   // Mostrar tooltip
   const showTooltip = useCallback((e: React.MouseEvent, app: ApplicationWithRanges, range: IdRange) => {
+    if (isDragging) return; // No mostrar tooltip mientras se arrastra
+    
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
     
@@ -294,7 +360,7 @@ export default function IdRangesPage() {
       y: e.clientY - rect.top - 10,
       content: `${app.name}\nRango: ${range.from.toLocaleString()} - ${range.to.toLocaleString()}\nTotal: ${(range.to - range.from + 1).toLocaleString()} IDs`,
     });
-  }, []);
+  }, [isDragging]);
 
   const hideTooltip = useCallback(() => {
     setTooltip(prev => ({ ...prev, visible: false }));
@@ -552,8 +618,11 @@ export default function IdRangesPage() {
           {/* Área del gráfico con scroll */}
           <div 
             ref={scrollContainerRef}
-            className={`flex-1 overflow-y-auto ${zoomScale > 1 ? 'overflow-x-auto' : 'overflow-x-hidden'}`}
-            onMouseLeave={hideTooltip}
+            className={`flex-1 overflow-y-auto ${zoomScale > 1 ? 'overflow-x-auto' : 'overflow-x-hidden'} ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} select-none`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseLeave}
             onScroll={() => syncScroll('chart')}
           >
             {/* Contenedor escalable - solo se expande cuando hay zoom */}
