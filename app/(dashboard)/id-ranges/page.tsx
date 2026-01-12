@@ -215,18 +215,18 @@ export default function IdRangesPage() {
   // Calcular ancho de una barra en porcentaje
   const getBarWidth = useCallback((from: number, to: number): number => {
     const width = ((to - from) / displayRange) * 100;
-    return Math.max(width, 0.01); // Mínimo 0.01% para que sea visible
+    return Math.max(width, 0.3); // Mínimo 0.3% para que sea visible sin zoom
   }, [displayRange]);
 
-  // Función de zoom - máximo zoom muestra 100 IDs de rango
-  const MAX_ZOOM = displayRange / 100; // Calculado dinámicamente basado en el rango actual
+  // Función de zoom - máximo zoom muestra ~1000 IDs de rango (ticks de 100 en 100)
+  const MAX_ZOOM = displayRange / 1000; // Calculado dinámicamente basado en el rango actual
   
   const applyZoom = useCallback((zoomIn: boolean) => {
     setZoomScale(prev => {
       const factor = zoomIn ? 1.5 : 0.67;
       const newScale = prev * factor;
       // Limitar entre 1x y MAX_ZOOM
-      const maxZoom = displayRange / 100;
+      const maxZoom = displayRange / 1000;
       return Math.min(Math.max(newScale, 1), maxZoom);
     });
   }, [displayRange]);
@@ -280,36 +280,45 @@ export default function IdRangesPage() {
         const scrollContainer = scrollContainerRef.current;
         const rect = scrollContainer.getBoundingClientRect();
         
-        // Posición del ratón relativa al contenedor
+        // Posición del ratón relativa al contenedor visible
         const mouseX = e.clientX - rect.left;
         
-        // Posición actual del scroll
+        // Posición actual del scroll y ancho del contenido
         const scrollLeft = scrollContainer.scrollLeft;
+        const contentWidth = scrollContainer.scrollWidth;
+        const viewportWidth = scrollContainer.clientWidth;
         
-        // Calcular la posición del ratón en el contenido (antes del zoom)
+        // Posición del ratón en el contenido (posición absoluta en el contenido)
         const mousePositionInContent = scrollLeft + mouseX;
-        const mouseRatioInContent = mousePositionInContent / (scrollContainer.scrollWidth);
         
-        // Aplicar zoom suave basado en el delta
+        // Calcular el nuevo zoom
+        const delta = -e.deltaY; // Invertir para que sea intuitivo
+        const zoomFactor = 1 + (delta * 0.005); // Factor suave
+        const maxZoom = displayRange / 1000;
+        
         setZoomScale(prev => {
-          const delta = -e.deltaY; // Invertir para que sea intuitivo
-          const zoomFactor = 1 + (delta * 0.005); // Factor suave
-          const newScale = prev * zoomFactor;
-          // Limitar entre 1x y MAX_ZOOM dinámico
-          const maxZoom = displayRange / 100;
-          const clampedScale = Math.min(Math.max(newScale, 1), maxZoom);
+          const newScale = Math.min(Math.max(prev * zoomFactor, 1), maxZoom);
           
-          // Ajustar el scroll después del zoom para mantener el punto bajo el cursor
-          setTimeout(() => {
+          // Calcular el ratio de cambio de escala
+          const scaleRatio = newScale / prev;
+          
+          // El nuevo ancho del contenido será proporcional al cambio de escala
+          // La posición del ratón en el contenido escalará proporcionalmente
+          const newMousePositionInContent = mousePositionInContent * scaleRatio;
+          
+          // Calcular el nuevo scroll para mantener el punto bajo el cursor
+          const newScrollLeft = newMousePositionInContent - mouseX;
+          
+          // Aplicar el scroll de forma síncrona usando requestAnimationFrame
+          // para que ocurra justo después del re-render
+          requestAnimationFrame(() => {
             if (scrollContainerRef.current) {
-              const newScrollWidth = scrollContainerRef.current.scrollWidth;
-              const newMousePositionInContent = mouseRatioInContent * newScrollWidth;
-              const newScrollLeft = newMousePositionInContent - mouseX;
-              scrollContainerRef.current.scrollLeft = Math.max(0, newScrollLeft);
+              const maxScroll = scrollContainerRef.current.scrollWidth - scrollContainerRef.current.clientWidth;
+              scrollContainerRef.current.scrollLeft = Math.max(0, Math.min(newScrollLeft, maxScroll));
             }
-          }, 0);
+          });
           
-          return clampedScale;
+          return newScale;
         });
       }
     };
@@ -536,13 +545,6 @@ export default function IdRangesPage() {
             )}
           </button>
         </div>
-      </div>
-
-      {/* Instrucciones */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-        <p className="text-sm text-blue-700 dark:text-blue-300">
-          <strong>Controles:</strong> Usa <kbd className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-800 rounded text-xs font-mono">Ctrl</kbd> + <kbd className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-800 rounded text-xs font-mono">+</kbd> / <kbd className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-800 rounded text-xs font-mono">-</kbd> para zoom, <kbd className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-800 rounded text-xs font-mono">Ctrl</kbd> + <kbd className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-800 rounded text-xs font-mono">0</kbd> para resetear, o usa el gesto de pellizcar en el trackpad. Usa scroll para navegar.
-        </p>
       </div>
 
       {/* Chart container */}
