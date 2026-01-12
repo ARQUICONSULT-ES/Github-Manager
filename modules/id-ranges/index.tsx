@@ -844,6 +844,25 @@ export function IdRangesPage() {
 
               {/* Filas del gráfico */}
               <div className="relative" style={{ height: chartHeight }}>
+                {/* Zona resaltada del filtro de rango */}
+                {(rangeFrom || rangeTo) && (() => {
+                  const filterFromNum = rangeFrom ? parseInt(rangeFrom) : displayMinId;
+                  const filterToNum = rangeTo ? parseInt(rangeTo) : displayMaxId;
+                  const highlightLeft = getXPosition(Math.max(filterFromNum, displayMinId));
+                  const highlightRight = getXPosition(Math.min(filterToNum, displayMaxId));
+                  const highlightWidth = highlightRight - highlightLeft;
+                  
+                  return (
+                    <div
+                      className="absolute top-0 bottom-0 bg-blue-500/10 dark:bg-blue-400/10 pointer-events-none border-l-2 border-r-2 border-blue-500/30 dark:border-blue-400/30"
+                      style={{ 
+                        left: `${highlightLeft}%`, 
+                        width: `${highlightWidth}%` 
+                      }}
+                    />
+                  );
+                })()}
+                
                 {/* Líneas de guía verticales */}
                 {xAxisTicks.map((tick, i) => {
                   const xPos = getXPosition(tick);
