@@ -104,15 +104,23 @@ export default function IdRangesPage() {
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!isDragging || !scrollContainerRef.current) return;
     
+    const container = scrollContainerRef.current;
     const deltaX = dragStart.x - e.clientX;
     const deltaY = dragStart.y - e.clientY;
     
-    scrollContainerRef.current.scrollLeft = deltaX;
-    scrollContainerRef.current.scrollTop = deltaY;
+    // Limitar el scroll a los límites válidos del contenido
+    const maxScrollLeft = container.scrollWidth - container.clientWidth;
+    const maxScrollTop = container.scrollHeight - container.clientHeight;
+    
+    const clampedX = Math.max(0, Math.min(deltaX, maxScrollLeft));
+    const clampedY = Math.max(0, Math.min(deltaY, maxScrollTop));
+    
+    container.scrollLeft = clampedX;
+    container.scrollTop = clampedY;
     
     // Sincronizar el scroll vertical con el panel de etiquetas
     if (labelPanelRef.current) {
-      labelPanelRef.current.scrollTop = deltaY;
+      labelPanelRef.current.scrollTop = clampedY;
     }
   }, [isDragging, dragStart]);
 
@@ -298,16 +306,27 @@ export default function IdRangesPage() {
     };
   }, []);
 
-  // Filtrar aplicaciones por búsqueda
+  // Filtrar y ordenar aplicaciones por búsqueda
   const filteredApplications = useMemo(() => {
     if (!data) return [];
-    if (!searchText.trim()) return data.applications;
     
-    const search = searchText.toLowerCase();
-    return data.applications.filter(app => 
-      app.name.toLowerCase().includes(search) || 
-      app.publisher.toLowerCase().includes(search)
-    );
+    let apps = data.applications;
+    
+    // Filtrar por búsqueda si hay texto
+    if (searchText.trim()) {
+      const search = searchText.toLowerCase();
+      apps = apps.filter(app => 
+        app.name.toLowerCase().includes(search) || 
+        app.publisher.toLowerCase().includes(search)
+      );
+    }
+    
+    // Ordenar por el rango más pequeño (from más pequeño)
+    return apps.slice().sort((a, b) => {
+      const minFromA = Math.min(...a.idRanges.map(r => r.from));
+      const minFromB = Math.min(...b.idRanges.map(r => r.from));
+      return minFromA - minFromB;
+    });
   }, [data, searchText]);
 
   // Generar marcas del eje X con números redondos (~10 marcas visibles)
@@ -626,7 +645,7 @@ export default function IdRangesPage() {
             onScroll={() => syncScroll('chart')}
           >
             {/* Contenedor escalable - solo se expande cuando hay zoom */}
-            <div style={{ width: zoomScale > 1 ? scaledWidth : '100%' }}>
+            <div style={{ width: zoomScale > 1 ? scaledWidth : '100%', minWidth: '100%' }}>
               {/* Eje X - Sticky */}
               <div 
                 className="flex items-end px-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 sticky top-0 z-10"
