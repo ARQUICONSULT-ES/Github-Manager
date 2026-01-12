@@ -728,6 +728,89 @@ export default function IdRangesPage() {
                       }}
                     >
                       {app.idRanges.map((range, rangeIndex) => {
+                        // Detectar si el rango está completamente fuera del rango visible
+                        const isAboveMax = range.from > MAX_ID;
+                        const isBelowMin = range.to < MIN_ID;
+                        
+                        if (isAboveMax) {
+                          // Mostrar indicador al final del rango visible con flecha derecha
+                          return (
+                            <div
+                              key={`${app.id}-${rangeIndex}`}
+                              className="absolute flex items-center gap-1 cursor-pointer hover:brightness-110 transition-all"
+                              style={{
+                                right: '8px', // Posicionado al final del gráfico
+                                top: BAR_PADDING,
+                                height: ROW_HEIGHT - BAR_PADDING * 2,
+                              }}
+                              onMouseEnter={(e) => showTooltip(e, app, range)}
+                              onMouseMove={(e) => showTooltip(e, app, range)}
+                              onMouseLeave={hideTooltip}
+                            >
+                              <div 
+                                className="rounded-sm px-2 py-1 text-xs font-medium text-white flex items-center gap-1"
+                                style={{
+                                  backgroundColor: COLORS[originalIndex % COLORS.length],
+                                  opacity: 0.85,
+                                }}
+                              >
+                                {range.from.toLocaleString()}
+                                <svg 
+                                  className="w-3 h-3" 
+                                  fill="currentColor" 
+                                  viewBox="0 0 20 20"
+                                >
+                                  <path 
+                                    fillRule="evenodd" 
+                                    d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" 
+                                    clipRule="evenodd" 
+                                  />
+                                </svg>
+                              </div>
+                            </div>
+                          );
+                        }
+                        
+                        if (isBelowMin) {
+                          // Mostrar indicador al inicio del rango visible con flecha izquierda
+                          return (
+                            <div
+                              key={`${app.id}-${rangeIndex}`}
+                              className="absolute flex items-center gap-1 cursor-pointer hover:brightness-110 transition-all"
+                              style={{
+                                left: '8px', // Posicionado al inicio del gráfico
+                                top: BAR_PADDING,
+                                height: ROW_HEIGHT - BAR_PADDING * 2,
+                              }}
+                              onMouseEnter={(e) => showTooltip(e, app, range)}
+                              onMouseMove={(e) => showTooltip(e, app, range)}
+                              onMouseLeave={hideTooltip}
+                            >
+                              <div 
+                                className="rounded-sm px-2 py-1 text-xs font-medium text-white flex items-center gap-1"
+                                style={{
+                                  backgroundColor: COLORS[originalIndex % COLORS.length],
+                                  opacity: 0.85,
+                                }}
+                              >
+                                <svg 
+                                  className="w-3 h-3" 
+                                  fill="currentColor" 
+                                  viewBox="0 0 20 20"
+                                >
+                                  <path 
+                                    fillRule="evenodd" 
+                                    d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" 
+                                    clipRule="evenodd" 
+                                  />
+                                </svg>
+                                {range.to.toLocaleString()}
+                              </div>
+                            </div>
+                          );
+                        }
+                        
+                        // Barra normal
                         const xPos = getXPosition(range.from);
                         const width = getBarWidth(range.from, range.to);
 
