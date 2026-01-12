@@ -215,7 +215,7 @@ export default function IdRangesPage() {
   // Calcular ancho de una barra en porcentaje
   const getBarWidth = useCallback((from: number, to: number): number => {
     const width = ((to - from) / displayRange) * 100;
-    return Math.max(width, 0.05); // Mínimo 0.05% para que sea visible
+    return Math.max(width, 0.01); // Mínimo 0.01% para que sea visible
   }, [displayRange]);
 
   // Función de zoom - máximo zoom muestra 100 IDs de rango
@@ -414,7 +414,7 @@ export default function IdRangesPage() {
       visible: true,
       x,
       y,
-      content: `${app.name}\nRango: ${range.from.toLocaleString()} - ${range.to.toLocaleString()}\nTotal: ${(range.to - range.from + 1).toLocaleString()} IDs`,
+      content: `${app.name}\n${app.publisher}\nRango: ${range.from.toLocaleString()} - ${range.to.toLocaleString()}\nTotal: ${(range.to - range.from + 1).toLocaleString()} IDs`,
     });
   }, [isDragging]);
 
@@ -513,9 +513,6 @@ export default function IdRangesPage() {
             )}
           </div>
           
-          <span className="text-sm text-gray-600 dark:text-gray-400">
-            Zoom: {zoomPercent}%
-          </span>
           <button
             onClick={resetZoom}
             disabled={zoomScale === 1}
@@ -597,9 +594,6 @@ export default function IdRangesPage() {
             </div>
             
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                Zoom: {zoomPercent}%
-              </span>
               <button
                 onClick={resetZoom}
                 disabled={zoomScale === 1}
