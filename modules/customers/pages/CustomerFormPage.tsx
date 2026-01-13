@@ -31,6 +31,8 @@ export function CustomerFormPage({ customerId }: CustomerFormPageProps) {
   const [formData, setFormData] = useState({
     customerName: "",
     imageBase64: "",
+    infraestructureType: "Saas" as "Saas" | "OnPremise",
+    description: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -162,6 +164,8 @@ export function CustomerFormPage({ customerId }: CustomerFormPageProps) {
       setFormData({
         customerName: data.customerName,
         imageBase64: data.imageBase64 || "",
+        infraestructureType: data.infraestructureType || "Saas",
+        description: data.description || "",
       });
       setImagePreview(data.imageBase64 || "");
     } catch (err) {
@@ -523,7 +527,35 @@ export function CustomerFormPage({ customerId }: CustomerFormPageProps) {
                       placeholder="Ingresa el nombre del cliente"
                     />
                   </div>
-                  {/* Espacio para más campos aquí */}
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-1.5">
+                      Tipo de Infraestructura
+                    </label>
+                    <select
+                      value={formData.infraestructureType}
+                      onChange={(e) =>
+                        setFormData({ ...formData, infraestructureType: e.target.value as "Saas" | "OnPremise" })
+                      }
+                      className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-xs sm:text-sm"
+                    >
+                      <option value="Saas">SaaS</option>
+                      <option value="OnPremise">On-Premise</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-1.5">
+                      Descripción
+                    </label>
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) =>
+                        setFormData({ ...formData, description: e.target.value })
+                      }
+                      rows={3}
+                      className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-xs sm:text-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 resize-none"
+                      placeholder="Añade una descripción del cliente"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

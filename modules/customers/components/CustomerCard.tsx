@@ -60,6 +60,26 @@ export function CustomerCard({ customer, onEdit }: CustomerCardProps) {
             {customer.customerName}
           </h3>
           
+          {/* Badge de tipo de infraestructura */}
+          {customer.infraestructureType && (
+            <div className="mt-1.5 mb-2">
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium ${
+                customer.infraestructureType === 'Saas'
+                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                  : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+              }`}>
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {customer.infraestructureType === 'Saas' ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.5a2 2 0 00-1 .25m0 0H5m12 0V5a2 2 0 012-2h4a2 2 0 012 2v12a2 2 0 01-2 2z" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0zm0-7a2 2 0 11-4 0 2 2 0 014 0zM9 7a2 2 0 11-4 0 2 2 0 014 0z" />
+                  )}
+                </svg>
+                {customer.infraestructureType === 'Saas' ? 'SaaS' : 'On-Premise'}
+              </span>
+            </div>
+          )}
+          
           {/* Contadores con estilo del EnvironmentCard */}
           <div className="mt-2 grid grid-cols-2 gap-3">
             {/* Tenants Count */}

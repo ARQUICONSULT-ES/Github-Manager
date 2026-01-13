@@ -45,7 +45,7 @@ model Customer {
   imageBase64         String?            @db.Text
   tenants             Tenant[]
   infraestructureType InfrastructureType @default(Saas)
-  // description String?   @db.Text
+  description         String?            @db.Text
 
   // Relación: Un customer puede ser accedido por muchos usuarios
   allowedUsers UserCustomer[]

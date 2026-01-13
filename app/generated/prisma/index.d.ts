@@ -2733,6 +2733,7 @@ export namespace Prisma {
     customerName: string | null
     imageBase64: string | null
     infraestructureType: $Enums.InfrastructureType | null
+    description: string | null
   }
 
   export type CustomerMaxAggregateOutputType = {
@@ -2740,6 +2741,7 @@ export namespace Prisma {
     customerName: string | null
     imageBase64: string | null
     infraestructureType: $Enums.InfrastructureType | null
+    description: string | null
   }
 
   export type CustomerCountAggregateOutputType = {
@@ -2747,6 +2749,7 @@ export namespace Prisma {
     customerName: number
     imageBase64: number
     infraestructureType: number
+    description: number
     _all: number
   }
 
@@ -2756,6 +2759,7 @@ export namespace Prisma {
     customerName?: true
     imageBase64?: true
     infraestructureType?: true
+    description?: true
   }
 
   export type CustomerMaxAggregateInputType = {
@@ -2763,6 +2767,7 @@ export namespace Prisma {
     customerName?: true
     imageBase64?: true
     infraestructureType?: true
+    description?: true
   }
 
   export type CustomerCountAggregateInputType = {
@@ -2770,6 +2775,7 @@ export namespace Prisma {
     customerName?: true
     imageBase64?: true
     infraestructureType?: true
+    description?: true
     _all?: true
   }
 
@@ -2850,6 +2856,7 @@ export namespace Prisma {
     customerName: string
     imageBase64: string | null
     infraestructureType: $Enums.InfrastructureType
+    description: string | null
     _count: CustomerCountAggregateOutputType | null
     _min: CustomerMinAggregateOutputType | null
     _max: CustomerMaxAggregateOutputType | null
@@ -2874,6 +2881,7 @@ export namespace Prisma {
     customerName?: boolean
     imageBase64?: boolean
     infraestructureType?: boolean
+    description?: boolean
     tenants?: boolean | Customer$tenantsArgs<ExtArgs>
     allowedUsers?: boolean | Customer$allowedUsersArgs<ExtArgs>
     _count?: boolean | CustomerCountOutputTypeDefaultArgs<ExtArgs>
@@ -2884,6 +2892,7 @@ export namespace Prisma {
     customerName?: boolean
     imageBase64?: boolean
     infraestructureType?: boolean
+    description?: boolean
   }, ExtArgs["result"]["customer"]>
 
   export type CustomerSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -2891,6 +2900,7 @@ export namespace Prisma {
     customerName?: boolean
     imageBase64?: boolean
     infraestructureType?: boolean
+    description?: boolean
   }, ExtArgs["result"]["customer"]>
 
   export type CustomerSelectScalar = {
@@ -2898,9 +2908,10 @@ export namespace Prisma {
     customerName?: boolean
     imageBase64?: boolean
     infraestructureType?: boolean
+    description?: boolean
   }
 
-  export type CustomerOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "customerName" | "imageBase64" | "infraestructureType", ExtArgs["result"]["customer"]>
+  export type CustomerOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "customerName" | "imageBase64" | "infraestructureType" | "description", ExtArgs["result"]["customer"]>
   export type CustomerInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     tenants?: boolean | Customer$tenantsArgs<ExtArgs>
     allowedUsers?: boolean | Customer$allowedUsersArgs<ExtArgs>
@@ -2920,6 +2931,7 @@ export namespace Prisma {
       customerName: string
       imageBase64: string | null
       infraestructureType: $Enums.InfrastructureType
+      description: string | null
     }, ExtArgs["result"]["customer"]>
     composites: {}
   }
@@ -3349,6 +3361,7 @@ export namespace Prisma {
     readonly customerName: FieldRef<"Customer", 'String'>
     readonly imageBase64: FieldRef<"Customer", 'String'>
     readonly infraestructureType: FieldRef<"Customer", 'InfrastructureType'>
+    readonly description: FieldRef<"Customer", 'String'>
   }
     
 
@@ -9351,7 +9364,8 @@ export namespace Prisma {
     id: 'id',
     customerName: 'customerName',
     imageBase64: 'imageBase64',
-    infraestructureType: 'infraestructureType'
+    infraestructureType: 'infraestructureType',
+    description: 'description'
   };
 
   export type CustomerScalarFieldEnum = (typeof CustomerScalarFieldEnum)[keyof typeof CustomerScalarFieldEnum]
@@ -9653,6 +9667,7 @@ export namespace Prisma {
     customerName?: StringFilter<"Customer"> | string
     imageBase64?: StringNullableFilter<"Customer"> | string | null
     infraestructureType?: EnumInfrastructureTypeFilter<"Customer"> | $Enums.InfrastructureType
+    description?: StringNullableFilter<"Customer"> | string | null
     tenants?: TenantListRelationFilter
     allowedUsers?: UserCustomerListRelationFilter
   }
@@ -9662,6 +9677,7 @@ export namespace Prisma {
     customerName?: SortOrder
     imageBase64?: SortOrderInput | SortOrder
     infraestructureType?: SortOrder
+    description?: SortOrderInput | SortOrder
     tenants?: TenantOrderByRelationAggregateInput
     allowedUsers?: UserCustomerOrderByRelationAggregateInput
   }
@@ -9674,6 +9690,7 @@ export namespace Prisma {
     customerName?: StringFilter<"Customer"> | string
     imageBase64?: StringNullableFilter<"Customer"> | string | null
     infraestructureType?: EnumInfrastructureTypeFilter<"Customer"> | $Enums.InfrastructureType
+    description?: StringNullableFilter<"Customer"> | string | null
     tenants?: TenantListRelationFilter
     allowedUsers?: UserCustomerListRelationFilter
   }, "id">
@@ -9683,6 +9700,7 @@ export namespace Prisma {
     customerName?: SortOrder
     imageBase64?: SortOrderInput | SortOrder
     infraestructureType?: SortOrder
+    description?: SortOrderInput | SortOrder
     _count?: CustomerCountOrderByAggregateInput
     _max?: CustomerMaxOrderByAggregateInput
     _min?: CustomerMinOrderByAggregateInput
@@ -9696,6 +9714,7 @@ export namespace Prisma {
     customerName?: StringWithAggregatesFilter<"Customer"> | string
     imageBase64?: StringNullableWithAggregatesFilter<"Customer"> | string | null
     infraestructureType?: EnumInfrastructureTypeWithAggregatesFilter<"Customer"> | $Enums.InfrastructureType
+    description?: StringNullableWithAggregatesFilter<"Customer"> | string | null
   }
 
   export type UserCustomerWhereInput = {
@@ -10181,6 +10200,7 @@ export namespace Prisma {
     customerName: string
     imageBase64?: string | null
     infraestructureType?: $Enums.InfrastructureType
+    description?: string | null
     tenants?: TenantCreateNestedManyWithoutCustomerInput
     allowedUsers?: UserCustomerCreateNestedManyWithoutCustomerInput
   }
@@ -10190,6 +10210,7 @@ export namespace Prisma {
     customerName: string
     imageBase64?: string | null
     infraestructureType?: $Enums.InfrastructureType
+    description?: string | null
     tenants?: TenantUncheckedCreateNestedManyWithoutCustomerInput
     allowedUsers?: UserCustomerUncheckedCreateNestedManyWithoutCustomerInput
   }
@@ -10199,6 +10220,7 @@ export namespace Prisma {
     customerName?: StringFieldUpdateOperationsInput | string
     imageBase64?: NullableStringFieldUpdateOperationsInput | string | null
     infraestructureType?: EnumInfrastructureTypeFieldUpdateOperationsInput | $Enums.InfrastructureType
+    description?: NullableStringFieldUpdateOperationsInput | string | null
     tenants?: TenantUpdateManyWithoutCustomerNestedInput
     allowedUsers?: UserCustomerUpdateManyWithoutCustomerNestedInput
   }
@@ -10208,6 +10230,7 @@ export namespace Prisma {
     customerName?: StringFieldUpdateOperationsInput | string
     imageBase64?: NullableStringFieldUpdateOperationsInput | string | null
     infraestructureType?: EnumInfrastructureTypeFieldUpdateOperationsInput | $Enums.InfrastructureType
+    description?: NullableStringFieldUpdateOperationsInput | string | null
     tenants?: TenantUncheckedUpdateManyWithoutCustomerNestedInput
     allowedUsers?: UserCustomerUncheckedUpdateManyWithoutCustomerNestedInput
   }
@@ -10217,6 +10240,7 @@ export namespace Prisma {
     customerName: string
     imageBase64?: string | null
     infraestructureType?: $Enums.InfrastructureType
+    description?: string | null
   }
 
   export type CustomerUpdateManyMutationInput = {
@@ -10224,6 +10248,7 @@ export namespace Prisma {
     customerName?: StringFieldUpdateOperationsInput | string
     imageBase64?: NullableStringFieldUpdateOperationsInput | string | null
     infraestructureType?: EnumInfrastructureTypeFieldUpdateOperationsInput | $Enums.InfrastructureType
+    description?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type CustomerUncheckedUpdateManyInput = {
@@ -10231,6 +10256,7 @@ export namespace Prisma {
     customerName?: StringFieldUpdateOperationsInput | string
     imageBase64?: NullableStringFieldUpdateOperationsInput | string | null
     infraestructureType?: EnumInfrastructureTypeFieldUpdateOperationsInput | $Enums.InfrastructureType
+    description?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type UserCustomerCreateInput = {
@@ -10845,6 +10871,7 @@ export namespace Prisma {
     customerName?: SortOrder
     imageBase64?: SortOrder
     infraestructureType?: SortOrder
+    description?: SortOrder
   }
 
   export type CustomerMaxOrderByAggregateInput = {
@@ -10852,6 +10879,7 @@ export namespace Prisma {
     customerName?: SortOrder
     imageBase64?: SortOrder
     infraestructureType?: SortOrder
+    description?: SortOrder
   }
 
   export type CustomerMinOrderByAggregateInput = {
@@ -10859,6 +10887,7 @@ export namespace Prisma {
     customerName?: SortOrder
     imageBase64?: SortOrder
     infraestructureType?: SortOrder
+    description?: SortOrder
   }
 
   export type EnumInfrastructureTypeWithAggregatesFilter<$PrismaModel = never> = {
@@ -11933,6 +11962,7 @@ export namespace Prisma {
     customerName: string
     imageBase64?: string | null
     infraestructureType?: $Enums.InfrastructureType
+    description?: string | null
     tenants?: TenantCreateNestedManyWithoutCustomerInput
   }
 
@@ -11941,6 +11971,7 @@ export namespace Prisma {
     customerName: string
     imageBase64?: string | null
     infraestructureType?: $Enums.InfrastructureType
+    description?: string | null
     tenants?: TenantUncheckedCreateNestedManyWithoutCustomerInput
   }
 
@@ -12006,6 +12037,7 @@ export namespace Prisma {
     customerName?: StringFieldUpdateOperationsInput | string
     imageBase64?: NullableStringFieldUpdateOperationsInput | string | null
     infraestructureType?: EnumInfrastructureTypeFieldUpdateOperationsInput | $Enums.InfrastructureType
+    description?: NullableStringFieldUpdateOperationsInput | string | null
     tenants?: TenantUpdateManyWithoutCustomerNestedInput
   }
 
@@ -12014,6 +12046,7 @@ export namespace Prisma {
     customerName?: StringFieldUpdateOperationsInput | string
     imageBase64?: NullableStringFieldUpdateOperationsInput | string | null
     infraestructureType?: EnumInfrastructureTypeFieldUpdateOperationsInput | $Enums.InfrastructureType
+    description?: NullableStringFieldUpdateOperationsInput | string | null
     tenants?: TenantUncheckedUpdateManyWithoutCustomerNestedInput
   }
 
@@ -12022,6 +12055,7 @@ export namespace Prisma {
     customerName: string
     imageBase64?: string | null
     infraestructureType?: $Enums.InfrastructureType
+    description?: string | null
     allowedUsers?: UserCustomerCreateNestedManyWithoutCustomerInput
   }
 
@@ -12030,6 +12064,7 @@ export namespace Prisma {
     customerName: string
     imageBase64?: string | null
     infraestructureType?: $Enums.InfrastructureType
+    description?: string | null
     allowedUsers?: UserCustomerUncheckedCreateNestedManyWithoutCustomerInput
   }
 
@@ -12086,6 +12121,7 @@ export namespace Prisma {
     customerName?: StringFieldUpdateOperationsInput | string
     imageBase64?: NullableStringFieldUpdateOperationsInput | string | null
     infraestructureType?: EnumInfrastructureTypeFieldUpdateOperationsInput | $Enums.InfrastructureType
+    description?: NullableStringFieldUpdateOperationsInput | string | null
     allowedUsers?: UserCustomerUpdateManyWithoutCustomerNestedInput
   }
 
@@ -12094,6 +12130,7 @@ export namespace Prisma {
     customerName?: StringFieldUpdateOperationsInput | string
     imageBase64?: NullableStringFieldUpdateOperationsInput | string | null
     infraestructureType?: EnumInfrastructureTypeFieldUpdateOperationsInput | $Enums.InfrastructureType
+    description?: NullableStringFieldUpdateOperationsInput | string | null
     allowedUsers?: UserCustomerUncheckedUpdateManyWithoutCustomerNestedInput
   }
 

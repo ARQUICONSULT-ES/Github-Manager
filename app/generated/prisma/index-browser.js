@@ -139,7 +139,8 @@ exports.Prisma.CustomerScalarFieldEnum = {
   id: 'id',
   customerName: 'customerName',
   imageBase64: 'imageBase64',
-  infraestructureType: 'infraestructureType'
+  infraestructureType: 'infraestructureType',
+  description: 'description'
 };
 
 exports.Prisma.UserCustomerScalarFieldEnum = {
