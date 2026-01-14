@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { Application } from "@/modules/applications/types";
 import { useApplicationInstallations } from "@/modules/applications/hooks/useApplicationInstallations";
-import { ApplicationsList } from "@/modules/customers/components/ApplicationsList";
+import { InstallationsByCustomer } from "@/modules/applications/components/InstallationsByCustomer";
 import { countOutdatedInstallations, isVersionOutdated } from "@/modules/applications/utils/versionComparison";
 
 interface ApplicationDetailPageProps {
@@ -318,11 +318,10 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
           </button>
         </div>
         <div className="p-3 sm:p-4 md:p-5">
-          <ApplicationsList 
-            applications={filteredInstallations}
+          <InstallationsByCustomer 
+            installations={filteredInstallations}
             isLoading={installationsLoading}
-            lockExpanded={true}
-            latestVersions={application.latestReleaseVersion ? { [application.id]: application.latestReleaseVersion } : {}}
+            latestVersion={application.latestReleaseVersion || undefined}
           />
         </div>
       </div>

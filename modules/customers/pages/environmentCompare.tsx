@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/modules/shared/hooks/useToast";
 import ToastContainer from "@/modules/shared/components/ToastContainer";
 import { isVersionOutdated } from "@/modules/applications/utils/versionComparison";
@@ -63,13 +63,23 @@ export function EnvironmentComparePage({
   compareEnvironmentName 
 }: EnvironmentComparePageProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toasts, removeToast, error: showError } = useToast();
   const [leftEnvironment, setLeftEnvironment] = useState<EnvironmentDetail | null>(null);
   const [rightEnvironment, setRightEnvironment] = useState<EnvironmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
-  const [hideMicrosoftApps, setHideMicrosoftApps] = useState(true);
-  const [hideMatching, setHideMatching] = useState(false);
+  
+  // Inicializar filtros desde URL
+  const [hideMicrosoftApps, setHideMicrosoftApps] = useState(() => {
+    const param = searchParams.get('hideMicrosoft');
+    return param === null ? true : param === 'true';
+  });
+  const [hideMatching, setHideMatching] = useState(() => {
+    const param = searchParams.get('hideMatching');
+    return param === 'true';
+  });
+  
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [changingSide, setChangingSide] = useState<'left' | 'right'>('left');
   const [availableEnvironments, setAvailableEnvironments] = useState<Array<{
@@ -82,6 +92,33 @@ export function EnvironmentComparePage({
     nonMicrosoftAppsCount: number;
   }>>([]);
   const [loadingEnvironments, setLoadingEnvironments] = useState(false);
+
+  // Sincronizar filtros con URL
+  useEffect(() => {
+    const newParams = new URLSearchParams(window.location.search);
+    
+    // Actualizar parámetro hideMicrosoft (por defecto true, solo guardamos si es diferente)
+    if (!hideMicrosoftApps) {
+      newParams.set('hideMicrosoft', 'false');
+    } else {
+      newParams.delete('hideMicrosoft'); // Por defecto es true
+    }
+
+    // Actualizar parámetro hideMatching
+    if (hideMatching) {
+      newParams.set('hideMatching', 'true');
+    } else {
+      newParams.delete('hideMatching'); // Por defecto es false
+    }
+
+    const newUrl = `${window.location.pathname}?${newParams.toString()}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
+    
+    // Solo actualizar si la URL realmente cambió
+    if (newUrl !== currentUrl) {
+      router.replace(newUrl, { scroll: false });
+    }
+  }, [hideMicrosoftApps, hideMatching, router]);
 
   useEffect(() => {
     loadEnvironments();
