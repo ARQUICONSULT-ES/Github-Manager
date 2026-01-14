@@ -1,10 +1,6 @@
 import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import type { EnvironmentWithCustomer } from '@/modules/customers/types';
-import type { FilterConfig } from '@/modules/customers/types/filters';
-import { useGenericFilter } from './useGenericFilter';
-
-type SortBy = 'name' | 'customer' | 'type';
 
 // Interfaz para filtros avanzados
 export interface EnvironmentAdvancedFilters {
@@ -14,36 +10,6 @@ export interface EnvironmentAdvancedFilters {
   platformVersion?: string;
   applicationVersion?: string;
 }
-
-// Configuración de filtros para entornos
-export const environmentFilterConfig: FilterConfig<EnvironmentWithCustomer> = {
-  fields: [
-    {
-      key: "name",
-      label: "Nombre del Entorno",
-      type: "text",
-      operator: "contains",
-      placeholder: "Filtrar por nombre...",
-      getValue: (env) => env.name,
-    },
-    {
-      key: "customerName",
-      label: "Cliente",
-      type: "text",
-      operator: "contains",
-      placeholder: "Filtrar por cliente...",
-      getValue: (env) => env.customerName,
-    },
-    {
-      key: "type",
-      label: "Tipo",
-      type: "text",
-      operator: "contains",
-      placeholder: "Filtrar por tipo...",
-      getValue: (env) => env.type || '',
-    },
-  ],
-};
 
 export function useEnvironmentFilter(environments: EnvironmentWithCustomer[]) {
   const searchParams = useSearchParams();
@@ -60,12 +26,23 @@ export function useEnvironmentFilter(environments: EnvironmentWithCustomer[]) {
     };
   }, [searchParams]);
 
-  const [advancedFilters, setAdvancedFiltersState] = useState<EnvironmentAdvancedFilters>(getInitialFilters);
+  // Inicializar searchQuery desde URL
+  const initialSearchQuery = searchParams.get('search') || '';
 
-  // Sincronizar con URL cuando cambian los filtros
+  const [advancedFilters, setAdvancedFiltersState] = useState<EnvironmentAdvancedFilters>(getInitialFilters);
+  const [searchQuery, setSearchQueryState] = useState(initialSearchQuery);
+
+  // Sincronizar con URL cuando cambian los filtros o el searchQuery
   useEffect(() => {
     const newParams = new URLSearchParams(window.location.search);
     
+    // Actualizar parámetro de búsqueda
+    if (searchQuery) {
+      newParams.set('search', searchQuery);
+    } else {
+      newParams.delete('search');
+    }
+
     // Actualizar parámetros de filtros - siempre setear si hay valor, eliminar si no hay
     if (advancedFilters.type) {
       newParams.set('filterType', advancedFilters.type);
@@ -104,7 +81,7 @@ export function useEnvironmentFilter(environments: EnvironmentWithCustomer[]) {
     if (newUrl !== currentUrl) {
       router.replace(newUrl, { scroll: false });
     }
-  }, [advancedFilters, router]);
+  }, [advancedFilters, searchQuery, router]);
 
   // Aplicar filtros avanzados
   const filteredByAdvancedFilters = useMemo(() => {
@@ -142,9 +119,26 @@ export function useEnvironmentFilter(environments: EnvironmentWithCustomer[]) {
     return result;
   }, [environments, advancedFilters]);
 
+  // Aplicar filtro de búsqueda
+  const filteredBySearch = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return filteredByAdvancedFilters;
+    }
+
+    const query = searchQuery.toLowerCase();
+    return filteredByAdvancedFilters.filter((env) => {
+      // Buscar en nombre, cliente, tipo
+      return (
+        env.name.toLowerCase().includes(query) ||
+        env.customerName.toLowerCase().includes(query) ||
+        (env.type && env.type.toLowerCase().includes(query))
+      );
+    });
+  }, [filteredByAdvancedFilters, searchQuery]);
+
   // Ordenar: Production primero, luego el resto
-  const sortedByType = useMemo(() => {
-    return [...filteredByAdvancedFilters].sort((a, b) => {
+  const filteredEnvironments = useMemo(() => {
+    return [...filteredBySearch].sort((a, b) => {
       const aIsProduction = a.type?.toLowerCase() === 'production';
       const bIsProduction = b.type?.toLowerCase() === 'production';
       
@@ -152,16 +146,7 @@ export function useEnvironmentFilter(environments: EnvironmentWithCustomer[]) {
       if (!aIsProduction && bIsProduction) return 1;
       return 0;
     });
-  }, [filteredByAdvancedFilters]);
-
-  // Usar el hook genérico para búsqueda y ordenación
-  const {
-    filteredItems: filteredEnvironments,
-    searchQuery,
-    setSearchQuery: setSearchQueryBase,
-    sortBy,
-    setSortBy: setSortByBase,
-  } = useGenericFilter(sortedByType, environmentFilterConfig, 'customer', { syncWithUrl: true });
+  }, [filteredBySearch]);
 
   // Función para limpiar filtros avanzados (volver a valores por defecto)
   const clearAdvancedFilters = useCallback(() => {
@@ -175,12 +160,15 @@ export function useEnvironmentFilter(environments: EnvironmentWithCustomer[]) {
     setAdvancedFiltersState(newFilters);
   }, []);
 
+  // Función para actualizar el searchQuery
+  const setSearchQuery = useCallback((value: string) => {
+    setSearchQueryState(value);
+  }, []);
+
   return {
     filteredEnvironments,
     searchQuery,
-    setSearchQuery: setSearchQueryBase,
-    sortBy: sortBy as SortBy,
-    setSortBy: setSortByBase as (value: SortBy) => void,
+    setSearchQuery,
     advancedFilters,
     updateAdvancedFilters,
     clearAdvancedFilters,
