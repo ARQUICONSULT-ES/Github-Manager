@@ -259,7 +259,7 @@ async function installAppInBC(
         'Content-Type': 'application/octet-stream',
         'If-Match': '*'
       },
-      body: appBuffer
+      body: new Uint8Array(appBuffer)
     });
     
     if (!uploadContentRes.ok) {
@@ -294,7 +294,8 @@ async function installAppInBC(
     console.log('✓ Instalación triggerrada');
     
     // Paso 6: Poll deployment status
-    console.log('Paso 6: Monitoreando progreso...');
+    console.log('Paso 6: Monitoreando progreso de la instalación...');
+    console.log('⏳ Esperando a que Business Central complete la instalación...');
     
     // Extraer info del app.json del buffer
     const appJsonMatch = appBuffer.toString('utf-8').match(/"id"\s*:\s*"([^"]+)"/);
@@ -302,11 +303,13 @@ async function installAppInBC(
     
     let completed = false;
     let attempts = 0;
-    const maxAttempts = 60; // 5 minutos máximo (5 segundos * 60)
+    const maxAttempts = 180; // 30 minutos máximo (10 segundos * 180)
     let lastStatus = '';
+    let consecutiveErrors = 0;
+    const maxConsecutiveErrors = 5; // Fallar después de 5 errores consecutivos de polling
     
     while (!completed && attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 5000)); // Esperar 5 segundos
+      await new Promise(resolve => setTimeout(resolve, 10000)); // Esperar 10 segundos
       attempts++;
       
       try {
@@ -316,9 +319,20 @@ async function installAppInBC(
         });
         
         if (!statusRes.ok) {
-          console.log(`⚠ Error obteniendo status (intento ${attempts}/${maxAttempts})`);
+          consecutiveErrors++;
+          console.log(`⚠ Error obteniendo status (intento ${attempts}/${maxAttempts}, errores consecutivos: ${consecutiveErrors}/${maxConsecutiveErrors})`);
+          
+          if (consecutiveErrors >= maxConsecutiveErrors) {
+            return {
+              success: false,
+              error: `No se pudo obtener el estado del deployment después de ${maxConsecutiveErrors} intentos consecutivos. Verifica la conectividad con Business Central.`
+            };
+          }
           continue;
         }
+        
+        // Reset consecutive errors counter on successful response
+        consecutiveErrors = 0;
         
         const statusData = await statusRes.json();
         const deploymentStatuses = statusData.value || [];
@@ -337,39 +351,53 @@ async function installAppInBC(
         
         const status = thisExtension.status || thisExtension.Status;
         if (status !== lastStatus) {
-          console.log(`Status: ${status}`);
+          console.log(`📊 Estado del deployment: ${status} (${attempts}/${maxAttempts})`);
           lastStatus = status;
+        } else {
+          console.log(`⏳ Esperando... ${status} (${attempts}/${maxAttempts})`);
         }
         
         if (status === 'Completed') {
           completed = true;
-          console.log('✓ Deployment completado exitosamente');
+          console.log('✅ INSTALACIÓN COMPLETADA EXITOSAMENTE en Business Central');
         } else if (status === 'InProgress') {
-          // Continuar esperando
+          // Continuar esperando - NO marcar como completado aún
+          console.log('⏳ Business Central está procesando la instalación...');
         } else if (status === 'Unknown') {
           return {
             success: false,
-            error: 'Deployment status: Unknown Error'
+            error: 'Deployment status: Unknown Error. Revisa Extension Management en Business Central para más detalles.'
           };
         } else if (status && status !== 'InProgress') {
           // Cualquier otro status es un error
           return {
             success: false,
-            error: `Deployment failed with status: ${status}`
+            error: `Deployment falló con status: ${status}. Revisa Extension Management en Business Central.`
           };
         }
       } catch (pollError) {
-        console.log(`⚠ Error en polling (intento ${attempts}/${maxAttempts}):`, pollError);
-        // Continuar intentando
+        consecutiveErrors++;
+        const errorMsg = pollError instanceof Error ? pollError.message : 'Error desconocido';
+        console.log(`⚠ Excepción obteniendo status (intento ${attempts}/${maxAttempts}, errores consecutivos: ${consecutiveErrors}/${maxConsecutiveErrors}): ${errorMsg}`);
+        
+        if (consecutiveErrors >= maxConsecutiveErrors) {
+          return {
+            success: false,
+            error: `Fallos repetidos al obtener estado del deployment: ${errorMsg}. Verifica la conectividad con Business Central.`
+          };
+        }
+        // Continuar intentando - puede ser temporal
       }
     }
     
     if (!completed) {
       return {
         success: false,
-        error: 'Timeout esperando completion del deployment después de 5 minutos'
+        error: 'Timeout: La instalación no se completó en 30 minutos. Verifica el estado manualmente en Business Central → Extension Management.'
       };
     }
+    
+    console.log('🎉 Extension instalada y lista para usar en Business Central');
     
     return { 
       success: true,
@@ -775,7 +803,53 @@ export async function deployApplications(
       
       const installResult = await installAppInBC(environmentUrl, authContext, app.id, appBuffer);
 
-      if (installResult.success) {
+      // Verificar explícitamente que el resultado sea exitoso
+      if (!installResult) {
+        const error = 'No se recibió respuesta de la instalación';
+        console.error(`   ❌ ERROR EN INSTALACIÓN`);
+        console.error(`   💥 ${error}`);
+        console.log('━'.repeat(80));
+        
+        steps[2].status = 'error';
+        steps[2].message = error;
+        onProgress?.({
+          applicationId: app.id,
+          applicationName: app.name,
+          status: 'error',
+          error: `Paso 3/3: ${error}`,
+          steps: [...steps],
+        });
+        results.push({
+          success: false,
+          appId: app.id,
+          appName: app.name,
+          error,
+          details: { downloadUrl: releaseInfo.downloadUrl },
+        });
+        failedCount++;
+        
+        // Abortar apps restantes
+        for (let j = i + 1; j < applications.length; j++) {
+          const abortedApp = applications[j];
+          console.log(`\n⏸️  [${j + 1}/${applications.length}] ${abortedApp.name} - ABORTADO`);
+          onProgress?.({
+            applicationId: abortedApp.id,
+            applicationName: abortedApp.name,
+            status: 'error',
+            error: 'Despliegue abortado por error anterior',
+          });
+          results.push({
+            success: false,
+            appId: abortedApp.id,
+            appName: abortedApp.name,
+            error: 'Despliegue abortado por error anterior',
+          });
+          failedCount++;
+        }
+        break;
+      }
+
+      if (installResult.success === true && !installResult.error) {
         console.log(`   ✅ ¡INSTALADO EXITOSAMENTE!`);
         console.log(`   📌 Versión: ${releaseInfo.version}`);
         if (installResult.operationId) {
