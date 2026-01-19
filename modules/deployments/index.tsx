@@ -47,8 +47,58 @@ export function DeploymentsPage() {
       return;
     }
 
+    // Solicitar AuthContext al usuario
+    const authContextInput = prompt(
+      '🔐 Ingresa el AuthContext de Business Central:\n\n' +
+      'El AuthContext es un objeto JSON que contiene la información de autenticación.\n' +
+      'Puedes obtenerlo de varias formas:\n' +
+      '• Desde la página de Business Central (sessionStorage["authContext"])\n' +
+      '• Desde el parámetro ?authContext= en la URL\n\n' +
+      'Formato esperado (JSON):\n' +
+      '{"TenantID":"...","RefreshToken":"...","ClientID":"...","Scopes":"..."}'
+    );
+
+    if (!authContextInput || authContextInput.trim() === '') {
+      alert('❌ El AuthContext es obligatorio para realizar el despliegue.');
+      return;
+    }
+
+    // Limpiar el AuthContext si viene con el prefijo ?authContext=
+    let cleanAuthContextStr = authContextInput.replace(/^\?authContext=/, '').trim();
+    
+    // Validar que sea un JSON válido
+    let authContextObj;
+    try {
+      // Si ya es un objeto JSON parseado (string JSON), parsearlo
+      authContextObj = JSON.parse(cleanAuthContextStr);
+      
+      // Validar que tenga los campos requeridos
+      if (!authContextObj.TenantID || !authContextObj.RefreshToken || !authContextObj.ClientID) {
+        throw new Error('El AuthContext debe contener: TenantID, RefreshToken, ClientID');
+      }
+    } catch (e) {
+      alert(
+        '❌ El AuthContext no es válido.\n\n' +
+        'Debe ser un objeto JSON con los campos: TenantID, RefreshToken, ClientID, Scopes\n\n' +
+        'Error: ' + (e instanceof Error ? e.message : 'Formato JSON inválido')
+      );
+      return;
+    }
+    
+    // Convertir de vuelta a string para enviarlo
+    const cleanAuthContext = JSON.stringify(authContextObj);
+
+    // Construir la URL del entorno automáticamente
+    // Usar el TenantID del AuthContext (más confiable) o el del entorno
+    const tenantId = authContextObj.TenantID || selectedEnvironment.tenantId;
+    const environmentUrl = `https://api.businesscentral.dynamics.com/v2.0/${tenantId}/${selectedEnvironment.name}`;
+
+    console.log('Environment URL construida:', environmentUrl);
+
     const confirmed = confirm(
-      `¿Deseas desplegar ${selectedApplications.length} aplicaciones en ${selectedEnvironment.name}?\n\nEsto puede tardar varios minutos. El proceso se detendrá si encuentra algún error.`
+      `¿Deseas desplegar ${selectedApplications.length} aplicaciones en ${selectedEnvironment.name}?\n\n` +
+      `Entorno: ${environmentUrl}\n\n` +
+      `Esto puede tardar varios minutos. El proceso se detendrá si encuentra algún error.`
     );
 
     if (!confirmed) return;
@@ -122,7 +172,8 @@ export function DeploymentsPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          tenantId: selectedEnvironment.tenantId,
+          environmentUrl,
+          authContext: cleanAuthContext, // Ya es un string JSON válido
           environmentName: selectedEnvironment.name,
           applications: appsWithRepoInfo,
         }),

@@ -1,4 +1,388 @@
-import { ensureValidToken } from "@/lib/installedapp-sync";
+// Automation API requiere Access Token de OAuth, no authContext en query string
+
+/**
+ * Obtiene un Access Token usando el Refresh Token del AuthContext
+ */
+async function getAccessTokenFromRefreshToken(
+  tenantId: string,
+  clientId: string,
+  refreshToken: string,
+  scopes: string
+): Promise<{ accessToken: string; error?: string } | null> {
+  try {
+    const tokenEndpoint = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+    
+    const body = new URLSearchParams({
+      client_id: clientId,
+      scope: scopes,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+    });
+
+    console.log(`Obteniendo Access Token de Azure AD...`);
+    
+    const response = await fetch(tokenEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: body.toString(),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Error obteniendo token: ${response.status}`, errorText);
+      return null;
+    }
+
+    const tokenData = await response.json();
+    return { accessToken: tokenData.access_token };
+  } catch (error) {
+    console.error('Error en getAccessTokenFromRefreshToken:', error);
+    return null;
+  }
+}
+
+/**
+ * Instala una aplicación en Business Central mediante la Automation API
+ * Basado en BcContainerHelper: Publish-PerTenantExtensionApps
+ * Flujo:
+ * 1. GET /companies - obtener ID de company
+ * 2. GET /extensions - ver extensiones instaladas
+ * 3. POST/PATCH /extensionUpload - crear/actualizar upload entity
+ * 4. PATCH extensionContent@odata.mediaEditLink - subir archivo .app
+ * 5. POST /extensionUpload({id})/Microsoft.NAV.upload - triggear instalación
+ * 6. GET /extensionDeploymentStatus - poll hasta completar
+ */
+async function installAppInBC(
+  environmentUrl: string,
+  authContext: string,
+  appId: string,
+  appBuffer: Buffer
+): Promise<{ success: boolean; error?: string; operationId?: string }> {
+  try {
+    console.log(`Instalando app con ID: ${appId}`);
+    console.log(`Entorno URL: ${environmentUrl}`);
+    
+    // Parsear el authContext para obtener los datos de OAuth
+    let authContextObj;
+    try {
+      authContextObj = typeof authContext === 'string' ? JSON.parse(authContext) : authContext;
+    } catch (e) {
+      return {
+        success: false,
+        error: 'AuthContext inválido: no es un JSON válido'
+      };
+    }
+
+    // Validar que tenga los campos necesarios
+    if (!authContextObj.TenantID || !authContextObj.ClientID || !authContextObj.RefreshToken) {
+      return {
+        success: false,
+        error: 'AuthContext incompleto: falta TenantID, ClientID o RefreshToken'
+      };
+    }
+
+    // Obtener Access Token usando el Refresh Token
+    let scopes = authContextObj.Scopes || 'https://api.businesscentral.dynamics.com/.default';
+    
+    // Corregir el scope si no termina con /.default
+    if (scopes.endsWith('/') && !scopes.endsWith('/.default')) {
+      scopes = scopes + '.default';
+    } else if (!scopes.includes('/.default')) {
+      scopes = scopes + '/.default';
+    }
+    
+    const tokenResult = await getAccessTokenFromRefreshToken(
+      authContextObj.TenantID,
+      authContextObj.ClientID,
+      authContextObj.RefreshToken,
+      scopes
+    );
+
+    if (!tokenResult || !tokenResult.accessToken) {
+      return {
+        success: false,
+        error: 'No se pudo obtener Access Token de Azure AD. Verifica que el RefreshToken sea válido.'
+      };
+    }
+
+    console.log('✓ Access Token obtenido exitosamente');
+    
+    // Extraer el nombre del entorno de la URL
+    const environmentNameMatch = environmentUrl.match(/\/([^\/]+)$/);
+    const environmentName = environmentNameMatch ? environmentNameMatch[1] : 'Production';
+    
+    console.log(`Nombre del entorno: ${environmentName}`);
+    
+    // Automation API URL (igual que BcContainerHelper)
+    const automationApiUrl = `https://api.businesscentral.dynamics.com/v2.0/${environmentName}/api/microsoft/automation/v2.0`;
+    
+    const authHeaders = {
+      'Authorization': `Bearer ${tokenResult.accessToken}`
+    };
+    
+    // Paso 1: Obtener Company ID
+    console.log('Paso 1: Obteniendo Company...');
+    const companiesRes = await fetch(`${automationApiUrl}/companies`, {
+      method: 'GET',
+      headers: authHeaders
+    });
+    
+    if (!companiesRes.ok) {
+      const errorText = await companiesRes.text();
+      return {
+        success: false,
+        error: `Error obteniendo companies: ${companiesRes.status} ${errorText}`
+      };
+    }
+    
+    const companiesData = await companiesRes.json();
+    const company = companiesData.value?.[0];
+    
+    if (!company || !company.id) {
+      return {
+        success: false,
+        error: 'No se encontró una company en el entorno'
+      };
+    }
+    
+    const companyId = company.id;
+    console.log(`✓ Company: ${company.name} (${companyId})`);
+    
+    // Paso 2: Obtener extensiones actuales
+    console.log('Paso 2: Obteniendo extensiones instaladas...');
+    const extensionsRes = await fetch(`${automationApiUrl}/companies(${companyId})/extensions`, {
+      method: 'GET',
+      headers: authHeaders
+    });
+    
+    if (!extensionsRes.ok) {
+      const errorText = await extensionsRes.text();
+      return {
+        success: false,
+        error: `Error obteniendo extensiones: ${extensionsRes.status} ${errorText}`
+      };
+    }
+    
+    const extensionsData = await extensionsRes.json();
+    console.log(`✓ Extensiones actuales: ${extensionsData.value?.length || 0}`);
+    
+    // Paso 3: Crear/Actualizar extensionUpload entity
+    console.log('Paso 3: Creando extensionUpload entity...');
+    
+    // Primero intentar obtener si ya existe
+    const getUploadRes = await fetch(`${automationApiUrl}/companies(${companyId})/extensionUpload`, {
+      method: 'GET',
+      headers: authHeaders
+    });
+    
+    let extensionUpload;
+    const uploadBody = {
+      schedule: 'Current Version',
+      SchemaSyncMode: 'Add'
+    };
+    
+    if (getUploadRes.ok) {
+      const existingUpload = await getUploadRes.json();
+      if (existingUpload.value && existingUpload.value.length > 0 && existingUpload.value[0].systemId) {
+        // Ya existe, hacer PATCH
+        const systemId = existingUpload.value[0].systemId;
+        const patchRes = await fetch(`${automationApiUrl}/companies(${companyId})/extensionUpload(${systemId})`, {
+          method: 'PATCH',
+          headers: {
+            ...authHeaders,
+            'Content-Type': 'application/json',
+            'If-Match': '*'
+          },
+          body: JSON.stringify(uploadBody)
+        });
+        
+        if (!patchRes.ok) {
+          const errorText = await patchRes.text();
+          return {
+            success: false,
+            error: `Error actualizando extensionUpload: ${patchRes.status} ${errorText}`
+          };
+        }
+        
+        extensionUpload = await patchRes.json();
+      }
+    }
+    
+    if (!extensionUpload) {
+      // Crear nuevo
+      const postRes = await fetch(`${automationApiUrl}/companies(${companyId})/extensionUpload`, {
+        method: 'POST',
+        headers: {
+          ...authHeaders,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(uploadBody)
+      });
+      
+      if (!postRes.ok) {
+        const errorText = await postRes.text();
+        return {
+          success: false,
+          error: `Error creando extensionUpload: ${postRes.status} ${errorText}`
+        };
+      }
+      
+      extensionUpload = await postRes.json();
+    }
+    
+    if (!extensionUpload.systemId) {
+      return {
+        success: false,
+        error: 'No se pudo obtener systemId de extensionUpload'
+      };
+    }
+    
+    console.log(`✓ ExtensionUpload entity creada: ${extensionUpload.systemId}`);
+    
+    // Paso 4: Subir contenido del archivo .app
+    console.log('Paso 4: Subiendo archivo .app...');
+    const mediaEditLink = extensionUpload['extensionContent@odata.mediaEditLink'];
+    
+    if (!mediaEditLink) {
+      return {
+        success: false,
+        error: 'No se encontró extensionContent@odata.mediaEditLink en la respuesta'
+      };
+    }
+    
+    const uploadContentRes = await fetch(mediaEditLink, {
+      method: 'PATCH',
+      headers: {
+        ...authHeaders,
+        'Content-Type': 'application/octet-stream',
+        'If-Match': '*'
+      },
+      body: appBuffer
+    });
+    
+    if (!uploadContentRes.ok) {
+      const errorText = await uploadContentRes.text();
+      return {
+        success: false,
+        error: `Error subiendo contenido: ${uploadContentRes.status} ${errorText}`
+      };
+    }
+    
+    console.log(`✓ Archivo subido (${appBuffer.length} bytes)`);
+    
+    // Paso 5: Triggear la instalación
+    console.log('Paso 5: Triggerando instalación...');
+    const uploadActionUrl = `${automationApiUrl}/companies(${companyId})/extensionUpload(${extensionUpload.systemId})/Microsoft.NAV.upload`;
+    const triggerRes = await fetch(uploadActionUrl, {
+      method: 'POST',
+      headers: {
+        ...authHeaders,
+        'If-Match': '*'
+      }
+    });
+    
+    if (!triggerRes.ok) {
+      const errorText = await triggerRes.text();
+      return {
+        success: false,
+        error: `Error triggerando instalación: ${triggerRes.status} ${errorText}`
+      };
+    }
+    
+    console.log('✓ Instalación triggerrada');
+    
+    // Paso 6: Poll deployment status
+    console.log('Paso 6: Monitoreando progreso...');
+    
+    // Extraer info del app.json del buffer
+    const appJsonMatch = appBuffer.toString('utf-8').match(/"id"\s*:\s*"([^"]+)"/);
+    const appIdFromBuffer = appJsonMatch ? appJsonMatch[1] : appId;
+    
+    let completed = false;
+    let attempts = 0;
+    const maxAttempts = 60; // 5 minutos máximo (5 segundos * 60)
+    let lastStatus = '';
+    
+    while (!completed && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 5000)); // Esperar 5 segundos
+      attempts++;
+      
+      try {
+        const statusRes = await fetch(`${automationApiUrl}/companies(${companyId})/extensionDeploymentStatus`, {
+          method: 'GET',
+          headers: authHeaders
+        });
+        
+        if (!statusRes.ok) {
+          console.log(`⚠ Error obteniendo status (intento ${attempts}/${maxAttempts})`);
+          continue;
+        }
+        
+        const statusData = await statusRes.json();
+        const deploymentStatuses = statusData.value || [];
+        
+        // Buscar el status de nuestra app (por ID si lo tenemos, o por la última en la lista)
+        let thisExtension = deploymentStatuses.find((ext: any) => ext.appId === appIdFromBuffer);
+        if (!thisExtension && deploymentStatuses.length > 0) {
+          // Si no encontramos por ID, tomar el último deployment
+          thisExtension = deploymentStatuses[deploymentStatuses.length - 1];
+        }
+        
+        if (!thisExtension) {
+          console.log(`⚠ No se encontró deployment status (intento ${attempts}/${maxAttempts})`);
+          continue;
+        }
+        
+        const status = thisExtension.status || thisExtension.Status;
+        if (status !== lastStatus) {
+          console.log(`Status: ${status}`);
+          lastStatus = status;
+        }
+        
+        if (status === 'Completed') {
+          completed = true;
+          console.log('✓ Deployment completado exitosamente');
+        } else if (status === 'InProgress') {
+          // Continuar esperando
+        } else if (status === 'Unknown') {
+          return {
+            success: false,
+            error: 'Deployment status: Unknown Error'
+          };
+        } else if (status && status !== 'InProgress') {
+          // Cualquier otro status es un error
+          return {
+            success: false,
+            error: `Deployment failed with status: ${status}`
+          };
+        }
+      } catch (pollError) {
+        console.log(`⚠ Error en polling (intento ${attempts}/${maxAttempts}):`, pollError);
+        // Continuar intentando
+      }
+    }
+    
+    if (!completed) {
+      return {
+        success: false,
+        error: 'Timeout esperando completion del deployment después de 5 minutos'
+      };
+    }
+    
+    return { 
+      success: true,
+      operationId: extensionUpload.systemId
+    };
+  } catch (error) {
+    console.error('Error instalando app en BC:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Error desconocido' 
+    };
+  }
+}
 
 interface DeploymentResult {
   success: boolean;
@@ -151,81 +535,12 @@ async function downloadAndExtractApp(
 }
 
 /**
- * Instala una aplicación en Business Central mediante la Admin API
- * Documentación: https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/administration/administration-center-api_app_management
- */
-async function installAppInBC(
-  tenantId: string,
-  environmentName: string,
-  appId: string,
-  appBuffer: Buffer,
-  bcToken: string
-): Promise<{ success: boolean; error?: string; operationId?: string }> {
-  try {
-    const bcApiUrl = process.env.BC_ADMIN_API_URL || "https://api.businesscentral.dynamics.com/admin/v2.28/applications";
-    
-    console.log(`Instalando app con ID: ${appId}`);
-    
-    // Subir el archivo usando el endpoint correcto con el appId
-    // PUT /admin/v2.28/applications/{applicationFamily}/environments/{environmentName}/apps/{appId}
-    const uploadUrl = `${bcApiUrl}/BusinessCentral/environments/${environmentName}/apps/${appId}`;
-    
-    console.log(`Subiendo app a: ${uploadUrl}`);
-    console.log(`Tamaño del archivo: ${appBuffer.length} bytes`);
-    
-    // Convertir Buffer a Uint8Array para fetch
-    const uint8Array = new Uint8Array(appBuffer);
-    
-    const uploadRes = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${bcToken}`,
-        'Content-Type': 'application/octet-stream',
-      },
-      body: uint8Array,
-    });
-
-    console.log(`Respuesta de BC: ${uploadRes.status} ${uploadRes.statusText}`);
-
-    if (!uploadRes.ok) {
-      const errorText = await uploadRes.text();
-      console.error('Error subiendo app a BC:', errorText);
-      return { 
-        success: false, 
-        error: `Error ${uploadRes.status}: ${errorText || uploadRes.statusText}` 
-      };
-    }
-
-    const uploadResult = await uploadRes.json();
-    console.log('App subida exitosamente:', uploadResult);
-
-    // La respuesta puede contener un operationId para hacer seguimiento
-    const operationId = uploadResult.operationId || uploadResult.id;
-
-    if (operationId) {
-      // Opcionalmente, podemos hacer polling del estado
-      return { 
-        success: true, 
-        operationId: operationId 
-      };
-    }
-
-    return { success: true };
-  } catch (error) {
-    console.error('Error instalando app en BC:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Error desconocido' 
-    };
-  }
-}
-
-/**
  * Despliega múltiples aplicaciones en un entorno de Business Central
  * Se detiene en el primer error encontrado
  */
 export async function deployApplications(
-  tenantId: string,
+  environmentUrl: string,
+  authContext: string,
   environmentName: string,
   applications: Array<{
     id: string;
@@ -251,25 +566,6 @@ export async function deployApplications(
   let successCount = 0;
   let failedCount = 0;
 
-  // Verificar y obtener token válido de BC
-  const tokenResult = await ensureValidToken(tenantId);
-  if (!tokenResult.success || !tokenResult.token) {
-    // Si no hay token válido, marcar todas como fallidas
-    return {
-      success: 0,
-      failed: applications.length,
-      total: applications.length,
-      results: applications.map(app => ({
-        success: false,
-        appId: app.id,
-        appName: app.name,
-        error: tokenResult.error || 'No se pudo obtener token de BC',
-      })),
-    };
-  }
-
-  const bcToken = tokenResult.token;
-
   // Inicializar todas las apps como pendientes
   console.log(`\n🚀 Iniciando despliegue de ${applications.length} aplicación(es)...`);
   console.log(`📍 Entorno: ${environmentName}`);
@@ -281,10 +577,14 @@ export async function deployApplications(
     const appNumber = i + 1;
     
     // Inicializar los 3 pasos
-    const steps = [
-      { name: '1. Validación', status: 'pending' as const, message: undefined },
-      { name: '2. Descarga', status: 'pending' as const, message: undefined },
-      { name: '3. Instalación', status: 'pending' as const, message: undefined },
+    const steps: Array<{
+      name: string;
+      status: 'pending' | 'running' | 'success' | 'error';
+      message?: string;
+    }> = [
+      { name: '1. Validación', status: 'pending', message: undefined },
+      { name: '2. Descarga', status: 'pending', message: undefined },
+      { name: '3. Instalación', status: 'pending', message: undefined },
     ];
     
     try {
@@ -473,7 +773,7 @@ export async function deployApplications(
         steps: [...steps],
       });
       
-      const installResult = await installAppInBC(tenantId, environmentName, app.id, appBuffer, bcToken);
+      const installResult = await installAppInBC(environmentUrl, authContext, app.id, appBuffer);
 
       if (installResult.success) {
         console.log(`   ✅ ¡INSTALADO EXITOSAMENTE!`);

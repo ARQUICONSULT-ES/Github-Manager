@@ -32,12 +32,12 @@ export async function POST(request: NextRequest) {
 
     // Parsear el body
     const body = await request.json();
-    const { tenantId, environmentName, applications } = body;
+    const { environmentUrl, authContext, environmentName, applications } = body;
 
     // Validar parámetros
-    if (!tenantId || !environmentName || !applications || !Array.isArray(applications)) {
+    if (!environmentUrl || !authContext || !environmentName || !applications || !Array.isArray(applications)) {
       return NextResponse.json(
-        { error: "Parámetros inválidos. Se requiere: tenantId, environmentName, applications[]" },
+        { error: "Parámetros inválidos. Se requiere: environmentUrl, authContext, environmentName, applications[]" },
         { status: 400 }
       );
     }
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`\n🚀 Iniciando despliegue de ${applications.length} aplicaciones`);
     console.log(`   Entorno: ${environmentName}`);
-    console.log(`   Tenant: ${tenantId}`);
+    console.log(`   URL: ${environmentUrl}`);
 
     // Crear un stream para enviar eventos de progreso
     const encoder = new TextEncoder();
@@ -66,7 +66,8 @@ export async function POST(request: NextRequest) {
 
           // Ejecutar el despliegue con callback de progreso
           const result = await deployApplications(
-            tenantId,
+            environmentUrl,
+            authContext,
             environmentName,
             applications,
             githubToken,
