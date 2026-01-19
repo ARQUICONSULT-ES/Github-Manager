@@ -2,12 +2,19 @@
 
 import { useEffect, useState } from "react";
 
+export interface DeploymentStep {
+  name: string;
+  status: 'pending' | 'running' | 'success' | 'error';
+  message?: string;
+}
+
 export interface DeploymentProgress {
   applicationId: string;
   applicationName: string;
-  status: 'pending' | 'downloading' | 'installing' | 'success' | 'error';
+  status: 'pending' | 'downloading' | 'installing' | 'success' | 'error' | 'aborted';
   message?: string;
   error?: string;
+  steps?: DeploymentStep[];
 }
 
 interface DeploymentProgressModalProps {
@@ -29,6 +36,9 @@ export function DeploymentProgressModal({
   const currentIndex = progressData.findIndex(p => p.status === 'downloading' || p.status === 'installing');
   const successCount = progressData.filter(p => p.status === 'success').length;
   const errorCount = progressData.filter(p => p.status === 'error').length;
+  const abortedCount = progressData.filter(p => p.error?.includes('abortado')).length;
+  const pendingCount = progressData.filter(p => p.status === 'pending').length;
+  const processingCount = progressData.filter(p => p.status === 'downloading' || p.status === 'installing').length;
 
   useEffect(() => {
     if (!isOpen) {
@@ -47,11 +57,24 @@ export function DeploymentProgressModal({
     setIsComplete(isCompleteNow);
   }, [isOpen, progressData]);
 
-  const getStatusIcon = (status: DeploymentProgress['status']) => {
+  const getStatusIcon = (status: DeploymentProgress['status'], error?: string) => {
+    // Si tiene mensaje de abortado, mostrar icono especial
+    if (error?.includes('abortado')) {
+      return (
+        <div className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center">
+          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+      );
+    }
+    
     switch (status) {
       case 'pending':
         return (
-          <div className="w-6 h-6 rounded-full border-2 border-gray-300 dark:border-gray-600" />
+          <div className="w-6 h-6 rounded-full border-2 border-dashed border-gray-400 dark:border-gray-500 flex items-center justify-center">
+            <span className="text-xs text-gray-400 dark:text-gray-500">⏸</span>
+          </div>
         );
       case 'downloading':
       case 'installing':
@@ -77,16 +100,54 @@ export function DeploymentProgressModal({
             </svg>
           </div>
         );
+      default:
+        return null;
     }
   };
 
-  const getStatusText = (status: DeploymentProgress['status']) => {
+  const getStatusText = (status: DeploymentProgress['status'], error?: string) => {
+    if (error?.includes('abortado')) {
+      return '⏸️ Abortado';
+    }
     switch (status) {
-      case 'pending': return 'Pendiente';
-      case 'downloading': return 'Descargando desde GitHub...';
-      case 'installing': return 'Instalando en Business Central...';
-      case 'success': return 'Instalado correctamente';
-      case 'error': return 'Error';
+      case 'pending': return '⏳ En espera';
+      case 'downloading': return '📥 Descargando desde GitHub...';
+      case 'installing': return '⚙️ Instalando en Business Central...';
+      case 'success': return '✅ Instalado correctamente';
+      case 'error': return '❌ Error en instalación';
+      default: return '';
+    }
+  };
+
+  const getStepIcon = (status: DeploymentStep['status']) => {
+    switch (status) {
+      case 'pending':
+        return (
+          <div className="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600" />
+        );
+      case 'running':
+        return (
+          <svg className="animate-spin h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+        );
+      case 'success':
+        return (
+          <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+        );
+      case 'error':
+        return (
+          <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
+            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+        );
     }
   };
 
@@ -116,12 +177,18 @@ export function DeploymentProgressModal({
           {/* Progress bar */}
           <div className="mt-4">
             <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
-              <span>{successCount} de {totalApps} completadas</span>
-              <span>{Math.round((successCount / totalApps) * 100)}%</span>
+              <div className="flex gap-4">
+                {successCount > 0 && <span className="text-green-600 dark:text-green-400">✅ {successCount} completadas</span>}
+                {processingCount > 0 && <span className="text-blue-600 dark:text-blue-400">⏳ {processingCount} en proceso</span>}
+                {pendingCount > 0 && <span className="text-gray-500">⏸️ {pendingCount} pendientes</span>}
+                {errorCount > 0 && <span className="text-red-600 dark:text-red-400">❌ {errorCount} fallidas</span>}
+                {abortedCount > 0 && <span className="text-orange-600 dark:text-orange-400">⏸️ {abortedCount} abortadas</span>}
+              </div>
+              <span className="font-medium">{Math.round((successCount / totalApps) * 100)}%</span>
             </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
               <div
-                className={`h-2 rounded-full transition-all duration-300 ${
+                className={`h-2.5 transition-all duration-300 ${
                   hasError ? 'bg-red-500' : 'bg-blue-600'
                 }`}
                 style={{ width: `${(successCount / totalApps) * 100}%` }}
@@ -141,44 +208,87 @@ export function DeploymentProgressModal({
               <div
                 key={item.applicationId}
                 className={`p-4 rounded-lg border-2 transition-all ${
-                  item.status === 'error'
+                  item.error?.includes('abortado')
+                    ? 'border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20'
+                    : item.status === 'error'
                     ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20'
                     : item.status === 'success'
                     ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20'
                     : item.status === 'downloading' || item.status === 'installing'
-                    ? 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20'
-                    : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800'
+                    ? 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-300 dark:ring-blue-700'
+                    : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
                 }`}
               >
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 mt-1">
-                    {getStatusIcon(item.status)}
+                    {getStatusIcon(item.status, item.error)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      <span className={`text-sm font-bold ${
+                        item.status === 'downloading' || item.status === 'installing'
+                          ? 'text-blue-600 dark:text-blue-400'
+                          : 'text-gray-500 dark:text-gray-400'
+                      }`}>
                         #{index + 1}
                       </span>
                       <h3 className="font-semibold text-gray-900 dark:text-white truncate">
                         {item.applicationName}
                       </h3>
                     </div>
-                    <p className={`text-sm mt-1 ${
-                      item.status === 'error'
+                    <p className={`text-sm mt-1 font-medium ${
+                      item.error?.includes('abortado')
+                        ? 'text-orange-600 dark:text-orange-400'
+                        : item.status === 'error'
                         ? 'text-red-600 dark:text-red-400'
+                        : item.status === 'success'
+                        ? 'text-green-600 dark:text-green-400'
                         : 'text-gray-600 dark:text-gray-400'
                     }`}>
-                      {getStatusText(item.status)}
+                      {getStatusText(item.status, item.error)}
                     </p>
-                    {item.message && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {item.message && !item.error && (
+                      <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                         {item.message}
                       </p>
                     )}
                     {item.error && (
-                      <p className="text-sm text-red-600 dark:text-red-400 mt-1 font-medium">
+                      <p className={`text-sm mt-1 font-medium ${
+                        item.error?.includes('abortado')
+                          ? 'text-orange-700 dark:text-orange-300'
+                          : 'text-red-700 dark:text-red-300'
+                      }`}>
                         {item.error}
                       </p>
+                    )}
+                    
+                    {/* Steps Timeline */}
+                    {item.steps && item.steps.length > 0 && (
+                      <div className="mt-3 space-y-2 pl-2 border-l-2 border-gray-200 dark:border-gray-700">
+                        {item.steps.map((step, stepIndex) => (
+                          <div key={stepIndex} className="flex items-center gap-2 -ml-[9px]">
+                            {getStepIcon(step.status)}
+                            <div className="flex-1">
+                              <span className={`text-xs font-medium ${
+                                step.status === 'error'
+                                  ? 'text-red-600 dark:text-red-400'
+                                  : step.status === 'success'
+                                  ? 'text-green-600 dark:text-green-400'
+                                  : step.status === 'running'
+                                  ? 'text-blue-600 dark:text-blue-400'
+                                  : 'text-gray-500 dark:text-gray-400'
+                              }`}>
+                                {step.name}
+                              </span>
+                              {step.message && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                  {step.message}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
                 </div>

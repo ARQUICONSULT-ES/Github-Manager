@@ -237,9 +237,14 @@ export async function deployApplications(
   onProgress?: (progress: {
     applicationId: string;
     applicationName: string;
-    status: 'downloading' | 'installing' | 'success' | 'error';
+    status: 'pending' | 'downloading' | 'installing' | 'success' | 'error';
     message?: string;
     error?: string;
+    steps?: Array<{
+      name: string;
+      status: 'pending' | 'running' | 'success' | 'error';
+      message?: string;
+    }>;
   }) => void
 ): Promise<DeploymentBatchResult> {
   const results: DeploymentResult[] = [];
@@ -265,33 +270,53 @@ export async function deployApplications(
 
   const bcToken = tokenResult.token;
 
+  // Inicializar todas las apps como pendientes
+  console.log(`\n🚀 Iniciando despliegue de ${applications.length} aplicación(es)...`);
+  console.log(`📍 Entorno: ${environmentName}`);
+  console.log('━'.repeat(80));
+  
   // Procesar cada aplicación secuencialmente
-  for (const app of applications) {
+  for (let i = 0; i < applications.length; i++) {
+    const app = applications[i];
+    const appNumber = i + 1;
+    
+    // Inicializar los 3 pasos
+    const steps = [
+      { name: '1. Validación', status: 'pending' as const, message: undefined },
+      { name: '2. Descarga', status: 'pending' as const, message: undefined },
+      { name: '3. Instalación', status: 'pending' as const, message: undefined },
+    ];
+    
     try {
-      console.log(`\n📦 Desplegando ${app.name}...`);
+      console.log(`\n📦 [${appNumber}/${applications.length}] ${app.name}`);
+      console.log(`   ID: ${app.id}`);
+      console.log(`   Repo: ${app.githubRepoName}`);
+      console.log('─'.repeat(80));
 
-      // Notificar inicio de descarga
+      // === PASO 1: VALIDACIÓN ===
+      console.log(`   1️⃣  Validando configuración...`);
+      steps[0].status = 'running';
       onProgress?.({
         applicationId: app.id,
         applicationName: app.name,
         status: 'downloading',
-        message: `Obteniendo release desde GitHub`,
+        message: 'Validando configuración...',
+        steps: [...steps],
       });
-
-      // Extraer owner y repo del githubRepoName
+      
       const [owner, repo] = app.githubRepoName.split('/');
-      console.log(`\nProcessing app: ${app.name}`);
-      console.log(`  githubRepoName: ${app.githubRepoName}`);
-      console.log(`  Extracted - owner: "${owner}", repo: "${repo}"`);
       
       if (!owner || !repo) {
         const error = `Formato inválido de repositorio GitHub: "${app.githubRepoName}"`;
-        console.error(`  ❌ ${error}`);
+        console.error(`   ❌ ${error}`);
+        steps[0].status = 'error';
+        steps[0].message = error;
         onProgress?.({
           applicationId: app.id,
           applicationName: app.name,
           status: 'error',
-          error,
+          error: `Paso 1/3: ${error}`,
+          steps: [...steps],
         });
         results.push({
           success: false,
@@ -300,19 +325,54 @@ export async function deployApplications(
           error,
         });
         failedCount++;
-        break; // Detener al primer error
+        
+        // Marcar las apps restantes como abortadas
+        for (let j = i + 1; j < applications.length; j++) {
+          const abortedApp = applications[j];
+          console.log(`\n⏸️  [${j + 1}/${applications.length}] ${abortedApp.name} - ABORTADO`);
+          onProgress?.({
+            applicationId: abortedApp.id,
+            applicationName: abortedApp.name,
+            status: 'error',
+            error: 'Despliegue abortado por error anterior',
+          });
+          results.push({
+            success: false,
+            appId: abortedApp.id,
+            appName: abortedApp.name,
+            error: 'Despliegue abortado por error anterior',
+          });
+          failedCount++;
+        }
+        break;
       }
+      console.log(`   ✅ Configuración válida`);
+      steps[0].status = 'success';
+      steps[0].message = `Repositorio: ${owner}/${repo}`;
 
-      // Paso 1: Obtener URL de descarga del release
-      console.log(`  1️⃣ Obteniendo release desde GitHub...`);
+      // === PASO 2: DESCARGA ===
+      console.log(`   2️⃣  Obteniendo release desde GitHub...`);
+      steps[1].status = 'running';
+      onProgress?.({
+        applicationId: app.id,
+        applicationName: app.name,
+        status: 'downloading',
+        message: `Buscando última versión en GitHub`,
+        steps: [...steps],
+      });
+      
       const releaseInfo = await getLatestReleaseAsset(owner, repo, githubToken);
       if (!releaseInfo) {
-        const error = 'No se encontró release en GitHub';
+        const error = 'No se encontró release disponible en GitHub';
+        console.error(`   ❌ ${error}`);
+        steps[1].status = 'error';
+        steps[1].message = error;
         onProgress?.({
           applicationId: app.id,
           applicationName: app.name,
           status: 'error',
-          error,
+          error: `Paso 2/3: ${error}`,
+          steps: [...steps],
         });
         results.push({
           success: false,
@@ -321,28 +381,52 @@ export async function deployApplications(
           error,
         });
         failedCount++;
-        break; // Detener al primer error
+        
+        // Abortar apps restantes
+        for (let j = i + 1; j < applications.length; j++) {
+          const abortedApp = applications[j];
+          console.log(`\n⏸️  [${j + 1}/${applications.length}] ${abortedApp.name} - ABORTADO`);
+          onProgress?.({
+            applicationId: abortedApp.id,
+            applicationName: abortedApp.name,
+            status: 'error',
+            error: 'Despliegue abortado por error anterior',
+          });
+          results.push({
+            success: false,
+            appId: abortedApp.id,
+            appName: abortedApp.name,
+            error: 'Despliegue abortado por error anterior',
+          });
+          failedCount++;
+        }
+        break;
       }
 
-      console.log(`  ✓ Release encontrado: ${releaseInfo.version}`);
-
-      // Paso 2: Descargar y extraer el .app
-      console.log(`  2️⃣ Descargando archivo desde ${releaseInfo.downloadUrl}...`);
+      console.log(`   ✅ Release encontrado: ${releaseInfo.version}`);
+      console.log(`   📥 Descargando archivo .app...`);
+      steps[1].message = `Descargando v${releaseInfo.version}...`;
+      
       onProgress?.({
         applicationId: app.id,
         applicationName: app.name,
         status: 'downloading',
         message: `Descargando v${releaseInfo.version}`,
+        steps: [...steps],
       });
       
       const appBuffer = await downloadAndExtractApp(releaseInfo.downloadUrl, githubToken);
       if (!appBuffer) {
-        const error = 'Error descargando o extrayendo archivo .app';
+        const error = 'Error descargando archivo .app desde GitHub';
+        console.error(`   ❌ ${error}`);
+        steps[1].status = 'error';
+        steps[1].message = error;
         onProgress?.({
           applicationId: app.id,
           applicationName: app.name,
           status: 'error',
-          error,
+          error: `Paso 2/3: ${error}`,
+          steps: [...steps],
         });
         results.push({
           success: false,
@@ -352,29 +436,64 @@ export async function deployApplications(
           details: { downloadUrl: releaseInfo.downloadUrl },
         });
         failedCount++;
-        break; // Detener al primer error
+        
+        // Abortar apps restantes
+        for (let j = i + 1; j < applications.length; j++) {
+          const abortedApp = applications[j];
+          console.log(`\n⏸️  [${j + 1}/${applications.length}] ${abortedApp.name} - ABORTADO`);
+          onProgress?.({
+            applicationId: abortedApp.id,
+            applicationName: abortedApp.name,
+            status: 'error',
+            error: 'Despliegue abortado por error anterior',
+          });
+          results.push({
+            success: false,
+            appId: abortedApp.id,
+            appName: abortedApp.name,
+            error: 'Despliegue abortado por error anterior',
+          });
+          failedCount++;
+        }
+        break;
       }
 
-      console.log(`  ✓ Archivo descargado (${(appBuffer.byteLength / 1024).toFixed(2)} KB)`);
+      console.log(`   ✅ Descargado: ${(appBuffer.byteLength / 1024).toFixed(2)} KB`);
+      steps[1].status = 'success';
+      steps[1].message = `${(appBuffer.byteLength / 1024).toFixed(2)} KB descargados`;
 
-      // Paso 3: Instalar en Business Central
-      console.log(`  3️⃣ Instalando en Business Central (${environmentName})...`);
+      // === PASO 3: INSTALACIÓN ===
+      console.log(`   3️⃣  Instalando en Business Central...`);
+      steps[2].status = 'running';
       onProgress?.({
         applicationId: app.id,
         applicationName: app.name,
         status: 'installing',
         message: `Subiendo a Business Central`,
+        steps: [...steps],
       });
       
       const installResult = await installAppInBC(tenantId, environmentName, app.id, appBuffer, bcToken);
 
       if (installResult.success) {
-        console.log(`  ✅ ${app.name} desplegado exitosamente`);
+        console.log(`   ✅ ¡INSTALADO EXITOSAMENTE!`);
+        console.log(`   📌 Versión: ${releaseInfo.version}`);
+        if (installResult.operationId) {
+          console.log(`   🔄 Operation ID: ${installResult.operationId}`);
+        }
+        console.log('━'.repeat(80));
+        
+        steps[2].status = 'success';
+        steps[2].message = installResult.operationId 
+          ? `Instalado (Op: ${installResult.operationId.substring(0, 8)}...)`
+          : 'Instalado correctamente';
+        
         onProgress?.({
           applicationId: app.id,
           applicationName: app.name,
           status: 'success',
-          message: `Instalado correctamente v${releaseInfo.version}`,
+          message: `✓ Instalado: v${releaseInfo.version}`,
+          steps: [...steps],
         });
         results.push({
           success: true,
@@ -389,13 +508,19 @@ export async function deployApplications(
         });
         successCount++;
       } else {
-        console.error(`  ❌ Error instalando ${app.name}:`, installResult.error);
-        const error = installResult.error || 'Error desconocido al instalar';
+        const error = installResult.error || 'Error desconocido al instalar en BC';
+        console.error(`   ❌ ERROR EN INSTALACIÓN`);
+        console.error(`   💥 ${error}`);
+        console.log('━'.repeat(80));
+        
+        steps[2].status = 'error';
+        steps[2].message = error;
         onProgress?.({
           applicationId: app.id,
           applicationName: app.name,
           status: 'error',
-          error,
+          error: `Paso 3/3: ${error}`,
+          steps: [...steps],
         });
         results.push({
           success: false,
@@ -405,17 +530,47 @@ export async function deployApplications(
           details: { downloadUrl: releaseInfo.downloadUrl },
         });
         failedCount++;
-        break; // Detener al primer error
+        
+        // Abortar apps restantes
+        for (let j = i + 1; j < applications.length; j++) {
+          const abortedApp = applications[j];
+          console.log(`\n⏸️  [${j + 1}/${applications.length}] ${abortedApp.name} - ABORTADO`);
+          onProgress?.({
+            applicationId: abortedApp.id,
+            applicationName: abortedApp.name,
+            status: 'error',
+            error: 'Despliegue abortado por error anterior',
+          });
+          results.push({
+            success: false,
+            appId: abortedApp.id,
+            appName: abortedApp.name,
+            error: 'Despliegue abortado por error anterior',
+          });
+          failedCount++;
+        }
+        break;
       }
 
     } catch (error) {
-      console.error(`Error desplegando ${app.name}:`, error);
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      console.error(`   ❌ EXCEPCIÓN NO CONTROLADA`);
+      console.error(`   💥 ${errorMessage}`);
+      console.log('━'.repeat(80));
+      
+      // Marcar el paso actual como error
+      const currentStepIndex = steps.findIndex(s => s.status === 'running');
+      if (currentStepIndex >= 0) {
+        steps[currentStepIndex].status = 'error';
+        steps[currentStepIndex].message = errorMessage;
+      }
+      
       onProgress?.({
         applicationId: app.id,
         applicationName: app.name,
         status: 'error',
-        error: errorMessage,
+        error: `Error inesperado: ${errorMessage}`,
+        steps: [...steps],
       });
       results.push({
         success: false,
@@ -424,9 +579,36 @@ export async function deployApplications(
         error: errorMessage,
       });
       failedCount++;
-      break; // Detener al primer error
+      
+      // Abortar apps restantes
+      for (let j = i + 1; j < applications.length; j++) {
+        const abortedApp = applications[j];
+        console.log(`\n⏸️  [${j + 1}/${applications.length}] ${abortedApp.name} - ABORTADO`);
+        onProgress?.({
+          applicationId: abortedApp.id,
+          applicationName: abortedApp.name,
+          status: 'error',
+          error: 'Despliegue abortado por error anterior',
+        });
+        results.push({
+          success: false,
+          appId: abortedApp.id,
+          appName: abortedApp.name,
+          error: 'Despliegue abortado por error anterior',
+        });
+        failedCount++;
+      }
+      break;
     }
   }
+  
+  console.log('\n' + '━'.repeat(80));
+  console.log('📊 RESUMEN DEL DESPLIEGUE');
+  console.log('━'.repeat(80));
+  console.log(`   ✅ Exitosos: ${successCount}`);
+  console.log(`   ❌ Fallidos: ${failedCount}`);
+  console.log(`   📦 Total: ${applications.length}`);
+  console.log('━'.repeat(80) + '\n');
 
   return {
     success: successCount,
