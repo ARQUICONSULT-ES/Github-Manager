@@ -7,6 +7,7 @@ import { useDeployment } from "./hooks/useDeployment";
 import { EnvironmentSelector } from "./components/EnvironmentSelector";
 import { ApplicationList } from "./components/ApplicationList";
 import { ApplicationSelectorModal } from "./components/ApplicationSelectorModal";
+import { DeploymentProgressModal, type DeploymentProgress } from "./components/DeploymentProgressModal";
 import type { Application } from "@/modules/applications/types";
 
 export function DeploymentsPage() {
@@ -25,6 +26,9 @@ export function DeploymentsPage() {
   } = useDeployment();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isProgressModalOpen, setIsProgressModalOpen] = useState(false);
+  const [progressData, setProgressData] = useState<DeploymentProgress[]>([]);
+  const [isDeploying, setIsDeploying] = useState(false);
 
   // Filter active environments
   const activeEnvironments = environments.filter(
@@ -33,11 +37,151 @@ export function DeploymentsPage() {
 
   const selectedAppIds = selectedApplications.map((app: Application) => app.id);
 
-  const handleDeploy = () => {
-    // Aquí se implementará la lógica de despliegue
-    console.log("Desplegando aplicaciones:", selectedApplications);
-    console.log("En entorno:", selectedEnvironment);
-    alert(`Se desplegarán ${selectedApplications.length} aplicaciones en ${selectedEnvironment?.name}`);
+  const handleDeploy = async () => {
+    if (!selectedEnvironment) {
+      alert('Por favor selecciona un entorno primero');
+      return;
+    }
+    if (selectedApplications.length === 0) {
+      alert('Por favor agrega al menos una aplicación');
+      return;
+    }
+
+    const confirmed = confirm(
+      `¿Deseas desplegar ${selectedApplications.length} aplicaciones en ${selectedEnvironment.name}?\n\nEsto puede tardar varios minutos. El proceso se detendrá si encuentra algún error.`
+    );
+
+    if (!confirmed) return;
+
+    setIsDeploying(true);
+    setProgressData([]);
+    setIsProgressModalOpen(true);
+
+    try {
+      // Extraer repoOwner de githubUrl para cada aplicación
+      const appsWithRepoInfo = selectedApplications.map(app => {
+        let repoOwner = '';
+        let repoName = app.githubRepoName;
+
+        if (app.githubUrl) {
+          // Extraer owner de URL como: https://github.com/owner/repo
+          const match = app.githubUrl.match(/github\.com\/([^\/]+)\/([^\/\?#]+)/);
+          if (match) {
+            repoOwner = match[1];
+            repoName = match[2].replace(/\.git$/, ''); // Remover .git si existe
+          }
+        }
+
+        // Si githubRepoName ya incluye el owner (formato owner/repo), usarlo directamente
+        const finalRepoName = repoOwner 
+          ? `${repoOwner}/${repoName}` 
+          : app.githubRepoName;
+
+        console.log('App deployment info:', {
+          appName: app.name,
+          githubUrl: app.githubUrl,
+          githubRepoName: app.githubRepoName,
+          extracted: { repoOwner, repoName },
+          finalRepoName,
+        });
+
+        return {
+          id: app.id,
+          name: app.name,
+          publisher: app.publisher,
+          githubRepoName: finalRepoName,
+          versionType: app.versionType,
+        };
+      });
+
+      // Validar que todos tengan formato owner/repo
+      const appsWithoutOwner = appsWithRepoInfo.filter(app => {
+        const parts = app.githubRepoName.split('/');
+        return parts.length !== 2 || !parts[0] || !parts[1];
+      });
+      
+      if (appsWithoutOwner.length > 0) {
+        console.error('Apps sin owner/repo válido:', appsWithoutOwner);
+        alert(`Las siguientes aplicaciones no tienen repositorio GitHub válido:\n${appsWithoutOwner.map(a => `${a.name} (${a.githubRepoName})`).join('\n')}`);
+        setIsProgressModalOpen(false);
+        setIsDeploying(false);
+        return;
+      }
+
+      // Inicializar todas las apps como pendientes
+      const initialProgress: DeploymentProgress[] = appsWithRepoInfo.map(app => ({
+        applicationId: app.id,
+        applicationName: app.name,
+        status: 'pending',
+      }));
+      setProgressData(initialProgress);
+
+      const response = await fetch('/api/deployments/deploy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tenantId: selectedEnvironment.tenantId,
+          environmentName: selectedEnvironment.name,
+          applications: appsWithRepoInfo,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al iniciar despliegue');
+      }
+
+      if (!response.body) {
+        throw new Error('No se recibió stream de respuesta');
+      }
+
+      // Leer el stream de eventos
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const text = decoder.decode(value);
+        const lines = text.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              if (data.type === 'progress') {
+                // Actualizar progreso
+                setProgressData(prev => {
+                  const existing = prev.find(p => p.applicationId === data.progress.applicationId);
+                  if (existing) {
+                    return prev.map(p => 
+                      p.applicationId === data.progress.applicationId ? data.progress : p
+                    );
+                  }
+                  return [...prev, data.progress];
+                });
+              } else if (data.type === 'complete' || data.type === 'error') {
+                // Despliegue completado
+                break;
+              }
+            } catch (e) {
+              console.error('Error parsing SSE data:', e);
+            }
+          }
+        }
+      }
+
+    } catch (error) {
+      console.error('Error al desplegar:', error);
+      alert(error instanceof Error ? error.message : 'Error desconocido al desplegar');
+      setIsProgressModalOpen(false);
+    } finally {
+      setIsDeploying(false);
+    }
   };
 
   if (loadingEnvs || loadingApps) {
@@ -117,6 +261,17 @@ export function DeploymentsPage() {
         applications={applications}
         onSelectApplications={addApplications}
         selectedApplicationIds={selectedAppIds}
+      />
+
+      {/* Deployment Progress Modal */}
+      <DeploymentProgressModal
+        isOpen={isProgressModalOpen}
+        onClose={() => {
+          setIsProgressModalOpen(false);
+          setProgressData([]);
+        }}
+        totalApps={selectedApplications.length}
+        progressData={progressData}
       />
     </div>
   );
