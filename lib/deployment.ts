@@ -57,12 +57,17 @@ async function getAccessTokenFromRefreshToken(
 async function installAppInBC(
   environmentUrl: string,
   authContext: string,
-  appId: string,
+  appInfo: {
+    id: string;
+    name: string;
+    publisher: string;
+    version: string;
+  },
   appBuffer: Buffer,
   installMode: 'Add' | 'ForceSync' = 'Add'
 ): Promise<{ success: boolean; error?: string; operationId?: string }> {
   try {
-    console.log(`Instalando app con ID: ${appId}`);
+    console.log(`Instalando app: ${appInfo.publisher}_${appInfo.name}_${appInfo.version}`);
     console.log(`Entorno URL: ${environmentUrl}`);
     
     // Parsear el authContext para obtener los datos de OAuth
@@ -294,23 +299,30 @@ async function installAppInBC(
     
     console.log('✓ Instalación triggerrada');
     
-    // Paso 6: Poll deployment status
+    // Paso 6: Poll deployment status (basado en Publish-PerTenantExtensionApps de BcContainerHelper)
     console.log('Paso 6: Monitoreando progreso de la instalación...');
     console.log('⏳ Esperando a que Business Central complete la instalación...');
     
-    // Extraer info del app.json del buffer
-    const appJsonMatch = appBuffer.toString('utf-8').match(/"id"\s*:\s*"([^"]+)"/);
-    const appIdFromBuffer = appJsonMatch ? appJsonMatch[1] : appId;
+    // Usar publisher, name y version de la tabla de aplicaciones (pasados como parámetro)
+    // Esto es lo que hace BcContainerHelper - busca por estos campos, NO por appId
+    const appPublisher = appInfo.publisher;
+    const appName = appInfo.name;
+    const appVersion = appInfo.version;
+    
+    console.log(`📋 Buscando deployment status para: Publisher="${appPublisher}", Name="${appName}", Version="${appVersion}"`);
     
     let completed = false;
+    let deploymentFailed = false;
+    let failureReason = '';
     let attempts = 0;
     const maxAttempts = 180; // 30 minutos máximo (10 segundos * 180)
     let lastStatus = '';
     let consecutiveErrors = 0;
     const maxConsecutiveErrors = 5; // Fallar después de 5 errores consecutivos de polling
+    let sleepSeconds = 30; // Empezar con 30 segundos como BcContainerHelper
     
-    while (!completed && attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 10000)); // Esperar 10 segundos
+    while (!completed && !deploymentFailed && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, sleepSeconds * 1000));
       attempts++;
       
       try {
@@ -329,24 +341,44 @@ async function installAppInBC(
               error: `No se pudo obtener el estado del deployment después de ${maxConsecutiveErrors} intentos consecutivos. Verifica la conectividad con Business Central.`
             };
           }
+          sleepSeconds = Math.min(sleepSeconds + sleepSeconds, 60); // Backoff exponencial, máx 60s
           continue;
         }
         
         // Reset consecutive errors counter on successful response
         consecutiveErrors = 0;
+        sleepSeconds = 5; // Después de éxito, poll cada 5 segundos como BcContainerHelper
         
         const statusData = await statusRes.json();
         const deploymentStatuses = statusData.value || [];
         
-        // Buscar el status de nuestra app (por ID si lo tenemos, o por la última en la lista)
-        let thisExtension = deploymentStatuses.find((ext: any) => ext.appId === appIdFromBuffer);
-        if (!thisExtension && deploymentStatuses.length > 0) {
-          // Si no encontramos por ID, tomar el último deployment
-          thisExtension = deploymentStatuses[deploymentStatuses.length - 1];
+        // Buscar el status de nuestra app por publisher, name y version (como BcContainerHelper)
+        // Este es el método correcto usado por Publish-PerTenantExtensionApps
+        let thisExtension = deploymentStatuses.find((ext: any) => {
+          // Comparar case-insensitive para mayor robustez
+          const matchPublisher = appPublisher && ext.publisher && 
+            ext.publisher.toLowerCase() === appPublisher.toLowerCase();
+          const matchName = appName && ext.name && 
+            ext.name.toLowerCase() === appName.toLowerCase();
+          const matchVersion = appVersion && ext.appVersion && 
+            ext.appVersion === appVersion;
+          
+          return matchPublisher && matchName && matchVersion;
+        });
+        
+        // Fallback: si no encontramos por los 3 campos, intentar por publisher + name (versión puede diferir)
+        if (!thisExtension && appPublisher && appName) {
+          thisExtension = deploymentStatuses.find((ext: any) => {
+            const matchPublisher = ext.publisher && 
+              ext.publisher.toLowerCase() === appPublisher.toLowerCase();
+            const matchName = ext.name && 
+              ext.name.toLowerCase() === appName.toLowerCase();
+            return matchPublisher && matchName;
+          });
         }
         
         if (!thisExtension) {
-          console.log(`⚠ No se encontró deployment status (intento ${attempts}/${maxAttempts})`);
+          console.log(`⚠ No se encontró deployment status para ${appPublisher}/${appName}/${appVersion} (intento ${attempts}/${maxAttempts})`);
           continue;
         }
         
@@ -358,23 +390,30 @@ async function installAppInBC(
           console.log(`⏳ Esperando... ${status} (${attempts}/${maxAttempts})`);
         }
         
+        // Manejo de estados según BcContainerHelper (Publish-PerTenantExtensionApps.ps1 líneas 217-246)
         if (status === 'Completed') {
           completed = true;
           console.log('✅ INSTALACIÓN COMPLETADA EXITOSAMENTE en Business Central');
         } else if (status === 'InProgress') {
           // Continuar esperando - NO marcar como completado aún
+          consecutiveErrors = 0;
+          sleepSeconds = 5;
           console.log('⏳ Business Central está procesando la instalación...');
         } else if (status === 'Unknown') {
-          return {
-            success: false,
-            error: 'Deployment status: Unknown Error. Revisa Extension Management en Business Central para más detalles.'
-          };
-        } else if (status && status !== 'InProgress') {
-          // Cualquier otro status es un error
-          return {
-            success: false,
-            error: `Deployment falló con status: ${status}. Revisa Extension Management en Business Central.`
-          };
+          // En BcContainerHelper esto lanza "Unknown Error"
+          deploymentFailed = true;
+          failureReason = 'Unknown Error - La instalación falló con un error desconocido. Revisa Extension Deployment Status Details en Business Central.';
+        } else {
+          // CRÍTICO: Cualquier otro status (ej: "Failed", "Error", etc.) es un ERROR
+          // BcContainerHelper hace: throw $_.status
+          // También puede tener un campo errorMessage
+          deploymentFailed = true;
+          const errorMessage = thisExtension.errorMessage || thisExtension.ErrorMessage || '';
+          if (errorMessage) {
+            failureReason = `Deployment falló con status: ${status}. Error: ${errorMessage}`;
+          } else {
+            failureReason = `Deployment falló con status: ${status}. Revisa Extension Deployment Status Details en Business Central para más información.`;
+          }
         }
       } catch (pollError) {
         consecutiveErrors++;
@@ -387,8 +426,19 @@ async function installAppInBC(
             error: `Fallos repetidos al obtener estado del deployment: ${errorMsg}. Verifica la conectividad con Business Central.`
           };
         }
+        // Incrementar tiempo de espera con backoff
+        sleepSeconds = Math.min(sleepSeconds + sleepSeconds, 60);
         // Continuar intentando - puede ser temporal
       }
+    }
+    
+    // Verificar si el deployment falló explícitamente
+    if (deploymentFailed) {
+      console.error(`❌ DEPLOYMENT FALLÓ: ${failureReason}`);
+      return {
+        success: false,
+        error: failureReason
+      };
     }
     
     if (!completed) {
@@ -574,6 +624,8 @@ export async function deployApplications(
   applications: Array<{
     id: string;
     name: string;
+    publisher: string;
+    version: string;
     githubRepoName: string;
     versionType: 'release' | 'prerelease';
     installMode?: 'Add' | 'ForceSync';
@@ -806,7 +858,12 @@ export async function deployApplications(
       const installResult = await installAppInBC(
         environmentUrl,
         authContext,
-        app.id,
+        {
+          id: app.id,
+          name: app.name,
+          publisher: app.publisher,
+          version: app.version,
+        },
         appBuffer,
         app.installMode || 'Add'
       );

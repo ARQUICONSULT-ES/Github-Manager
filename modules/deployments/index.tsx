@@ -242,10 +242,16 @@ export function DeploymentsPage() {
           finalRepoName,
         });
 
+        // Seleccionar la versión según el versionType
+        const version = app.versionType === 'prerelease' 
+          ? (app.latestPrereleaseVersion || app.latestReleaseVersion || '0.0.0.0')
+          : (app.latestReleaseVersion || '0.0.0.0');
+
         return {
           id: app.id,
           name: app.name,
           publisher: app.publisher,
+          version: version,
           githubRepoName: finalRepoName,
           versionType: app.versionType,
           installMode: app.installMode || 'Add', // Default a 'Add' si no existe
