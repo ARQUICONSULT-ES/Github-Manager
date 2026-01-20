@@ -31,6 +31,7 @@ export function DeploymentsPage() {
     moveApplicationUp,
     moveApplicationDown,
     reorderApplications,
+    changeInstallMode,
     isInitialized,
     setIsInitialized,
   } = useDeployment();
@@ -70,13 +71,13 @@ export function DeploymentsPage() {
       // Restore selected applications
       if (appsParam) {
         try {
-          const appsData: Array<{ id: string; versionType: VersionType }> = JSON.parse(appsParam);
+          const appsData: Array<{ id: string; versionType: VersionType; installMode?: 'Add' | 'ForceSync' }> = JSON.parse(appsParam);
           const appsToAdd = appsData
-            .map(({ id, versionType }) => {
+            .map(({ id, versionType, installMode }) => {
               const app = applications.find(a => a.id === id);
-              return app ? { app, versionType } : null;
+              return app ? { app, versionType, installMode: installMode || 'Add' } : null;
             })
-            .filter(Boolean) as Array<{ app: Application; versionType: VersionType }>;
+            .filter(Boolean) as Array<{ app: Application; versionType: VersionType; installMode: 'Add' | 'ForceSync' }>;
           
           if (appsToAdd.length > 0) {
             addApplications(appsToAdd);
@@ -247,6 +248,7 @@ export function DeploymentsPage() {
           publisher: app.publisher,
           githubRepoName: finalRepoName,
           versionType: app.versionType,
+          installMode: app.installMode || 'Add', // Default a 'Add' si no existe
         };
       });
 
@@ -415,6 +417,7 @@ export function DeploymentsPage() {
           onAddClick={() => setIsModalOpen(true)}
           onDeploy={handleDeploy}
           onReorder={reorderApplications}
+          onInstallModeChange={changeInstallMode}
         />
       </div>
 

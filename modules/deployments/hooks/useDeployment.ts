@@ -21,11 +21,11 @@ export function useDeployment() {
       }
       
       const maxOrder = prev.length > 0 ? Math.max(...prev.map(a => a.order)) : -1;
-      return [...prev, { ...app, order: maxOrder + 1, versionType }];
+      return [...prev, { ...app, order: maxOrder + 1, versionType, installMode: 'Add' as const }];
     });
   }, []);
 
-  const addApplications = useCallback((apps: Array<{ app: Application; versionType: VersionType }>) => {
+  const addApplications = useCallback((apps: Array<{ app: Application; versionType: VersionType; installMode?: 'Add' | 'ForceSync' }>) => {
     setApplications(prev => {
       const existingIds = new Set(prev.map(a => a.id));
       const newApps = apps.filter(item => !existingIds.has(item.app.id));
@@ -36,7 +36,8 @@ export function useDeployment() {
       const appsWithOrder = newApps.map((item, idx) => ({
         ...item.app,
         order: maxOrder + 1 + idx,
-        versionType: item.versionType
+        versionType: item.versionType,
+        installMode: (item.installMode || 'Add') as 'Add' | 'ForceSync'
       }));
       
       return [...prev, ...appsWithOrder];
@@ -84,6 +85,14 @@ export function useDeployment() {
     });
   }, []);
 
+  const changeInstallMode = useCallback((appId: string, mode: 'Add' | 'ForceSync') => {
+    setApplications(prev => 
+      prev.map(app => 
+        app.id === appId ? { ...app, installMode: mode } : app
+      )
+    );
+  }, []);
+
   // Sync state with URL params
   const updateUrlParams = useCallback(() => {
     const params = new URLSearchParams();
@@ -94,10 +103,11 @@ export function useDeployment() {
     }
     
     if (applications.length > 0) {
-      // Store apps as JSON: [{id, versionType}]
+      // Store apps as JSON: [{id, versionType, installMode}]
       const appsData = applications.map(app => ({
         id: app.id,
-        versionType: app.versionType
+        versionType: app.versionType,
+        installMode: app.installMode || 'Add'
       }));
       params.set('apps', JSON.stringify(appsData));
     }
@@ -123,6 +133,7 @@ export function useDeployment() {
     moveApplicationUp,
     moveApplicationDown,
     reorderApplications,
+    changeInstallMode,
     isInitialized,
     setIsInitialized,
   };

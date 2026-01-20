@@ -58,7 +58,8 @@ async function installAppInBC(
   environmentUrl: string,
   authContext: string,
   appId: string,
-  appBuffer: Buffer
+  appBuffer: Buffer,
+  installMode: 'Add' | 'ForceSync' = 'Add'
 ): Promise<{ success: boolean; error?: string; operationId?: string }> {
   try {
     console.log(`Instalando app con ID: ${appId}`);
@@ -180,7 +181,7 @@ async function installAppInBC(
     let extensionUpload;
     const uploadBody = {
       schedule: 'Current Version',
-      SchemaSyncMode: 'Add'
+      SchemaSyncMode: installMode === 'ForceSync' ? 'Force_x0020_Sync' : 'Add'
     };
     
     if (getUploadRes.ok) {
@@ -575,6 +576,7 @@ export async function deployApplications(
     name: string;
     githubRepoName: string;
     versionType: 'release' | 'prerelease';
+    installMode?: 'Add' | 'ForceSync';
   }>,
   githubToken: string,
   onProgress?: (progress: {
@@ -801,7 +803,13 @@ export async function deployApplications(
         steps: [...steps],
       });
       
-      const installResult = await installAppInBC(environmentUrl, authContext, app.id, appBuffer);
+      const installResult = await installAppInBC(
+        environmentUrl,
+        authContext,
+        app.id,
+        appBuffer,
+        app.installMode || 'Add'
+      );
 
       // Verificar explícitamente que el resultado sea exitoso
       if (!installResult) {

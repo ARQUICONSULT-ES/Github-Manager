@@ -12,6 +12,7 @@ interface ApplicationListProps {
   onAddClick: () => void;
   onDeploy: () => void;
   onReorder: (startIndex: number, endIndex: number) => void;
+  onInstallModeChange: (appId: string, mode: 'Add' | 'ForceSync') => void;
 }
 
 export function ApplicationList({
@@ -23,6 +24,7 @@ export function ApplicationList({
   onAddClick,
   onDeploy,
   onReorder,
+  onInstallModeChange,
 }: ApplicationListProps) {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -197,7 +199,7 @@ export function ApplicationList({
                     <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
                       {app.publisher}
                     </p>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                       {app.versionType === 'release' && app.latestReleaseVersion && (
                         <span className="inline-block text-xs px-2 py-0.5 rounded font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
                           Release {app.latestReleaseVersion}
@@ -208,6 +210,37 @@ export function ApplicationList({
                           Prerelease {app.latestPrereleaseVersion}
                         </span>
                       )}
+                      {/* Install Mode Toggle Buttons */}
+                      <div className="flex items-center gap-0.5 bg-gray-100 dark:bg-gray-700/50 rounded p-0.5">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onInstallModeChange(app.id, 'Add');
+                          }}
+                          className={`text-xs px-2 py-0.5 rounded transition-all font-medium ${
+                            (app.installMode || 'Add') === 'Add'
+                              ? 'bg-white dark:bg-gray-600 text-green-700 dark:text-green-400 shadow-sm'
+                              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                          }`}
+                          title="Añadir: Instala sin forzar cambios de esquema"
+                        >
+                          Añadir
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onInstallModeChange(app.id, 'ForceSync');
+                          }}
+                          className={`text-xs px-2 py-0.5 rounded transition-all font-medium ${
+                            app.installMode === 'ForceSync'
+                              ? 'bg-white dark:bg-gray-600 text-orange-700 dark:text-orange-400 shadow-sm'
+                              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                          }`}
+                          title="Obligar: Fuerza la sincronización del esquema"
+                        >
+                          Obligar
+                        </button>
+                      </div>
                     </div>
                   </div>
 
