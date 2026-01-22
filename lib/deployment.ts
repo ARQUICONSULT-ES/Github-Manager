@@ -528,29 +528,66 @@ interface DeploymentBatchResult {
 async function getLatestReleaseAsset(
   owner: string,
   repo: string,
-  token: string
+  token: string,
+  versionType: 'release' | 'prerelease' = 'release'
 ): Promise<{ downloadUrl: string; version: string; assetId?: number } | null> {
   try {
-    const url = `https://api.github.com/repos/${owner}/${repo}/releases/latest`;
-    console.log(`Fetching release from: ${url}`);
-    
-    // Obtener el último release
-    const releaseRes = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github.v3+json",
-      },
-    });
+    let url: string;
+    let release: any;
 
-    if (!releaseRes.ok) {
-      const errorText = await releaseRes.text();
-      console.error(`Error obteniendo release: ${releaseRes.status} ${releaseRes.statusText}`);
-      console.error(`Response body: ${errorText}`);
-      return null;
+    if (versionType === 'prerelease') {
+      // Para prereleases, obtener todas las releases y filtrar
+      url = `https://api.github.com/repos/${owner}/${repo}/releases?per_page=50`;
+      console.log(`Fetching prereleases from: ${url}`);
+      
+      const releaseRes = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      });
+
+      if (!releaseRes.ok) {
+        const errorText = await releaseRes.text();
+        console.error(`Error obteniendo releases: ${releaseRes.status} ${releaseRes.statusText}`);
+        console.error(`Response body: ${errorText}`);
+        return null;
+      }
+
+      const releases = await releaseRes.json();
+      
+      // Buscar la primera prerelease (más reciente)
+      release = releases.find((r: any) => r.prerelease === true);
+      
+      if (!release) {
+        console.error('No se encontró ninguna prerelease disponible');
+        return null;
+      }
+      
+      console.log(`Prerelease encontrado: ${release.tag_name || release.name}`);
+    } else {
+      // Para releases normales, usar el endpoint /latest
+      url = `https://api.github.com/repos/${owner}/${repo}/releases/latest`;
+      console.log(`Fetching release from: ${url}`);
+      
+      const releaseRes = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      });
+
+      if (!releaseRes.ok) {
+        const errorText = await releaseRes.text();
+        console.error(`Error obteniendo release: ${releaseRes.status} ${releaseRes.statusText}`);
+        console.error(`Response body: ${errorText}`);
+        return null;
+      }
+
+      release = await releaseRes.json();
+      console.log(`Release encontrado: ${release.tag_name || release.name}`);
     }
-
-    const release = await releaseRes.json();
-    console.log(`Release encontrado: ${release.tag_name || release.name}`);
+    
     console.log(`Assets disponibles: ${release.assets.map((a: any) => a.name).join(', ')}`);
     
     // Buscar el asset .app (o .zip que contenga .app)
@@ -784,9 +821,9 @@ export async function deployApplications(
         steps: [...steps],
       });
       
-      const releaseInfo = await getLatestReleaseAsset(owner, repo, githubToken);
+      const releaseInfo = await getLatestReleaseAsset(owner, repo, githubToken, app.versionType);
       if (!releaseInfo) {
-        const error = 'No se encontró release disponible en GitHub';
+        const error = `No se encontró ${app.versionType === 'prerelease' ? 'prerelease' : 'release'} disponible en GitHub`;
         console.error(`   ❌ ${error}`);
         steps[1].status = 'error';
         steps[1].message = error;
