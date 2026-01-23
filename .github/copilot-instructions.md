@@ -398,9 +398,10 @@ NEXTAUTH_SECRET=your-secret-key
 # Business Central
 BC_ADMIN_API_URL=https://api.businesscentral.dynamics.com/admin/v2.28/applications
 
-# GitHub (optional, for OAuth)
-GITHUB_CLIENT_ID=your-github-client-id
-GITHUB_CLIENT_SECRET=your-github-client-secret
+# GitHub
+GITHUB_CLIENT_ID=your-github-client-id             # OAuth para login de usuarios
+GITHUB_CLIENT_SECRET=your-github-client-secret     # OAuth para login de usuarios
+GITHUB_ADMIN_TOKEN=ghp_xxxxxxxxxxxxx              # Token admin para despliegues (necesita permisos: repo, read:packages)
 ```
 
 ---

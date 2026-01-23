@@ -125,7 +125,6 @@ exports.Prisma.UserScalarFieldEnum = {
   name: 'name',
   email: 'email',
   password: 'password',
-  isActive: 'isActive',
   githubToken: 'githubToken',
   githubAvatar: 'githubAvatar',
   createdAt: 'createdAt',
@@ -133,7 +132,8 @@ exports.Prisma.UserScalarFieldEnum = {
   canAccessRepos: 'canAccessRepos',
   canAccessCustomers: 'canAccessCustomers',
   allCustomers: 'allCustomers',
-  canAccessAdmin: 'canAccessAdmin'
+  canAccessAdmin: 'canAccessAdmin',
+  isActive: 'isActive'
 };
 
 exports.Prisma.PasswordSetupTokenScalarFieldEnum = {
@@ -171,7 +171,8 @@ exports.Prisma.TenantScalarFieldEnum = {
   clientSecret: 'clientSecret',
   scope: 'scope',
   token: 'token',
-  tokenExpiresAt: 'tokenExpiresAt'
+  tokenExpiresAt: 'tokenExpiresAt',
+  authContext: 'authContext'
 };
 
 exports.Prisma.EnvironmentScalarFieldEnum = {
@@ -204,6 +205,8 @@ exports.Prisma.ApplicationScalarFieldEnum = {
   githubUrl: 'githubUrl',
   latestReleaseVersion: 'latestReleaseVersion',
   latestReleaseDate: 'latestReleaseDate',
+  latestPrereleaseVersion: 'latestPrereleaseVersion',
+  latestPrereleaseDate: 'latestPrereleaseDate',
   logoBase64: 'logoBase64',
   idRanges: 'idRanges',
   createdAt: 'createdAt',
