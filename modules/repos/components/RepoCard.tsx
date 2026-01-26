@@ -49,6 +49,7 @@ export function RepoCard({
   // Estados derivados de los hooks o preloadedInfo
   const workflowStatus: WorkflowStatus | null = preloadedInfo?.workflow ?? workflowHook.workflowStatus;
   const latestRelease: ReleaseInfo | null = preloadedInfo?.release ?? releaseHook.latestRelease;
+  const latestPrerelease: ReleaseInfo | null = preloadedInfo?.prerelease ?? null;
   const openPRCount = preloadedInfo?.openPRCount ?? 0;
   const branchCount = preloadedInfo?.branchCount ?? 0;
   const isLoading = !preloadedInfo && !skipIndividualFetch && (workflowHook.isLoading || releaseHook.isLoading);
@@ -646,8 +647,29 @@ export function RepoCard({
             </a>
           ) : null}
 
-          {/* Separador si hay release y hay PRs o branches */}
-          {latestRelease && (openPRCount > 0 || branchCount > 0) && (
+          {/* Separador si hay release y hay prerelease */}
+          {latestRelease && latestPrerelease && (
+            <span className="text-gray-400 dark:text-gray-600">•</span>
+          )}
+
+          {/* Prerelease badge */}
+          {latestPrerelease && (
+            <a
+              href={latestPrerelease.html_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium text-orange-600 dark:text-orange-400 hover:text-orange-500 dark:hover:text-orange-300 bg-orange-50 dark:bg-orange-500/10 hover:bg-orange-100 dark:hover:bg-orange-500/20 border border-orange-200 dark:border-orange-500/30 transition-colors"
+              title={`Prerelease: ${latestPrerelease.name || latestPrerelease.tag_name}`}
+            >
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M1 7.775V2.75C1 1.784 1.784 1 2.75 1h5.025c.464 0 .91.184 1.238.513l6.25 6.25a1.75 1.75 0 010 2.474l-5.026 5.026a1.75 1.75 0 01-2.474 0l-6.25-6.25A1.75 1.75 0 011 7.775zm1.5 0c0 .066.026.13.073.177l6.25 6.25a.25.25 0 00.354 0l5.025-5.025a.25.25 0 000-.354l-6.25-6.25a.25.25 0 00-.177-.073H2.75a.25.25 0 00-.25.25v5.025zM6 5a1 1 0 110 2 1 1 0 010-2z" />
+              </svg>
+              {latestPrerelease.tag_name}
+            </a>
+          )}
+
+          {/* Separador si hay release/prerelease y hay PRs o branches */}
+          {(latestRelease || latestPrerelease) && (openPRCount > 0 || branchCount > 0) && (
             <span className="text-gray-400 dark:text-gray-600">•</span>
           )}
 

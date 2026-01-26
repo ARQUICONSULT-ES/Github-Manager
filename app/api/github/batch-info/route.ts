@@ -24,6 +24,7 @@ interface ReleaseInfo {
 interface RepoInfo {
   workflow: WorkflowInfo | null;
   release: ReleaseInfo | null;
+  prerelease: ReleaseInfo | null;
   openPRCount: number;
   branchCount: number;
 }
@@ -180,6 +181,48 @@ async function fetchLatestRelease(
   }
 }
 
+// Función para obtener la última prerelease de un repo
+async function fetchLatestPrerelease(
+  token: string,
+  owner: string,
+  repo: string
+): Promise<ReleaseInfo | null> {
+  try {
+    const res = await fetch(
+      `${GITHUB_API_URL}/repos/${owner}/${repo}/releases?per_page=1`,
+      {
+        headers: {
+          Authorization: `token ${token}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+        cache: "no-store",
+      }
+    );
+
+    if (!res.ok) {
+      return null;
+    }
+
+    const data = await res.json();
+
+    // Buscar la primera prerelease
+    const prerelease = data.find((r: any) => r.prerelease === true);
+
+    if (!prerelease) {
+      return null;
+    }
+
+    return {
+      tag_name: prerelease.tag_name,
+      name: prerelease.name,
+      html_url: prerelease.html_url,
+      published_at: prerelease.published_at,
+    };
+  } catch {
+    return null;
+  }
+}
+
 // POST: Recibe lista de repos y devuelve info en batch
 export async function POST(request: NextRequest) {
   const token = await getAuthenticatedUserGitHubToken();
@@ -215,20 +258,21 @@ export async function POST(request: NextRequest) {
           const key = `${owner}/${repo}`;
 
           // Ejecutar todas las llamadas en paralelo para cada repo
-          const [workflow, release, openPRCount, branchCount] = await Promise.all([
+          const [workflow, release, prerelease, openPRCount, branchCount] = await Promise.all([
             fetchWorkflowStatus(token, owner, repo),
             fetchLatestRelease(token, owner, repo),
+            fetchLatestPrerelease(token, owner, repo),
             fetchOpenPRCount(token, owner, repo),
             fetchBranchCount(token, owner, repo),
           ]);
 
-          return { key, workflow, release, openPRCount, branchCount };
+          return { key, workflow, release, prerelease, openPRCount, branchCount };
         })
       );
 
       // Agregar resultados al objeto
-      for (const { key, workflow, release, openPRCount, branchCount } of chunkResults) {
-        results[key] = { workflow, release, openPRCount, branchCount };
+      for (const { key, workflow, release, prerelease, openPRCount, branchCount } of chunkResults) {
+        results[key] = { workflow, release, prerelease, openPRCount, branchCount };
       }
     }
 
