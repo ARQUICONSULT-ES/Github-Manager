@@ -18,6 +18,8 @@ export interface ReleaseInfo {
 export interface RepoExtraInfo {
   workflow: WorkflowStatus | null;
   release: ReleaseInfo | null;
+  openPRCount?: number;
+  branchCount?: number;
 }
 
 export interface RepoCardProps {

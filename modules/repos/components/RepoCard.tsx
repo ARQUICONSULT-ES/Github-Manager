@@ -49,6 +49,8 @@ export function RepoCard({
   // Estados derivados de los hooks o preloadedInfo
   const workflowStatus: WorkflowStatus | null = preloadedInfo?.workflow ?? workflowHook.workflowStatus;
   const latestRelease: ReleaseInfo | null = preloadedInfo?.release ?? releaseHook.latestRelease;
+  const openPRCount = preloadedInfo?.openPRCount ?? 0;
+  const branchCount = preloadedInfo?.branchCount ?? 0;
   const isLoading = !preloadedInfo && !skipIndividualFetch && (workflowHook.isLoading || releaseHook.isLoading);
   const isLoadingCommits = releaseHook.isLoadingCommits;
   const releaseCommits: Commit[] = releaseHook.commits;
@@ -616,7 +618,7 @@ export function RepoCard({
           )}
           
           {/* Separador */}
-          {repo.language && (externalIsLoadingRelease || latestRelease) && (
+          {repo.language && (externalIsLoadingRelease || latestRelease || openPRCount > 0 || branchCount > 0) && (
             <span className="text-gray-400 dark:text-gray-600">•</span>
           )}
           
@@ -642,10 +644,48 @@ export function RepoCard({
               </svg>
               {latestRelease.tag_name}
             </a>
-          ) : (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 border border-gray-200 dark:border-gray-700">
-              Sin release
-            </span>
+          ) : null}
+
+          {/* Separador si hay release y hay PRs o branches */}
+          {latestRelease && (openPRCount > 0 || branchCount > 0) && (
+            <span className="text-gray-400 dark:text-gray-600">•</span>
+          )}
+
+          {/* Pull Requests badge */}
+          {openPRCount > 0 && (
+            <a
+              href={`${repo.html_url}/pulls`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300 bg-green-50 dark:bg-green-500/10 hover:bg-green-100 dark:hover:bg-green-500/20 border border-green-200 dark:border-green-500/30 transition-colors"
+              title={`${openPRCount} Pull Request${openPRCount !== 1 ? 's' : ''} abierto${openPRCount !== 1 ? 's' : ''}`}
+            >
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z"/>
+              </svg>
+              {openPRCount}
+            </a>
+          )}
+
+          {/* Separador entre PRs y branches */}
+          {openPRCount > 0 && branchCount > 0 && (
+            <span className="text-gray-400 dark:text-gray-600">•</span>
+          )}
+
+          {/* Branches badge */}
+          {branchCount > 0 && (
+            <a
+              href={`${repo.html_url}/branches`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium text-purple-600 dark:text-purple-400 hover:text-purple-500 dark:hover:text-purple-300 bg-purple-50 dark:bg-purple-500/10 hover:bg-purple-100 dark:hover:bg-purple-500/20 border border-purple-200 dark:border-purple-500/30 transition-colors"
+              title={`${branchCount} Rama${branchCount !== 1 ? 's' : ''}`}
+            >
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.493 2.493 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Zm-6 0a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm8.25-.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM4.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z"/>
+              </svg>
+              {branchCount}
+            </a>
           )}
         </div>
 
