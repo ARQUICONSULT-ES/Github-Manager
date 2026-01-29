@@ -749,7 +749,7 @@ export function EnvironmentComparePage({
                     <div key={idx}>
                       {renderAppCard(
                         installation, 
-                        app.hasDiff ? 'border-orange-300 dark:border-orange-600 bg-orange-50/30 dark:bg-orange-900/10' : undefined,
+                        undefined,
                         environments[idx].name,
                         { version: app.hasDiff }
                       )}
