@@ -51,6 +51,7 @@ export async function PUT(
     }
 
     // Verificar si ya existe otro cliente con el mismo nombre
+    // IMPORTANTE: Esta búsqueda es global (no filtrada por permisos) para evitar duplicados
     const existingCustomer = await prisma.customer.findFirst({
       where: {
         customerName: {

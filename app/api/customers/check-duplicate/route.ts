@@ -1,9 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getUserPermissions } from "@/lib/auth-permissions";
 
 // GET - Verificar si un nombre de cliente ya existe
+// IMPORTANTE: Esta validación consulta TODOS los clientes globalmente,
+// independientemente de los permisos del usuario, para evitar duplicados
 export async function GET(request: NextRequest) {
   try {
+    // Verificar que el usuario esté autenticado
+    const permissions = await getUserPermissions();
+
+    if (!permissions.isAuthenticated) {
+      return NextResponse.json(
+        { error: "No autorizado" },
+        { status: 401 }
+      );
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const customerName = searchParams.get('name');
     const excludeId = searchParams.get('excludeId');

@@ -40,13 +40,72 @@ npx prisma db push
 
 ### 2. Backend (Next.js API Routes)
 
+#### 2.1 Política de Permisos
+
+**IMPORTANTE**: 
+- ✅ **Cualquier usuario autenticado** puede crear clientes (no solo admins)
+- ✅ **La validación de duplicados** consulta TODOS los clientes globalmente
+- ✅ **Los usuarios no-admin** se asignan automáticamente a los clientes que crean
+- ⚠️ **La visualización de clientes** sigue respetando los permisos individuales
+
+Esto asegura que:
+1. No se puedan crear duplicados sin importar los permisos del usuario
+2. Los usuarios pueden crear clientes sin necesitar privilegios de admin
+3. Los usuarios ven automáticamente los clientes que crean
+
 #### 2.1 Endpoint de Creación (`POST /api/customers`)
 
 **Archivo**: `app/api/customers/route.ts`
 
 **Validaciones implementadas**:
 
-1. **Validación explícita antes de crear**:
+1. **Verificación de autenticación** (cualquier usuario autenticado puede crear):
+   ```typescript
+   const permissions = await getUserPermissions();
+
+   if (!permissions.isAuthenticated) {
+     return NextResponse.json(
+       { error: "No autorizado" },
+       { status: 401 }
+     );
+   }
+   ```
+
+2. **Validación explícita antes de crear** (búsqueda global):
+   ```typescript
+   // IMPORTANTE: Esta búsqueda es GLOBAL (no filtrada por permisos)
+   const existingCustomer = await prisma.customer.findFirst({
+     where: {
+       customerName: {
+         equals: customerName.trim(),
+         mode: 'insensitive', // Ignorar mayúsculas/minúsculas
+       },
+     },
+   });
+
+   if (existingCustomer) {
+     return NextResponse.json(
+       { error: "Ya existe un cliente con este nombre" },
+       { status: 409 } // Conflict
+     );
+   }
+   ```
+
+3. **Asignación automática para usuarios no-admin**:
+   ```typescript
+   // Si el usuario NO tiene acceso a todos los clientes,
+   // asignarlo automáticamente al cliente que acaba de crear
+   if (!permissions.allCustomers && permissions.userId) {
+     await prisma.userCustomer.create({
+       data: {
+         userId: permissions.userId,
+         customerId: customer.id,
+       },
+     });
+   }
+   ```
+
+4. **Manejo de error de Prisma (fallback)**:
    ```typescript
    const existingCustomer = await prisma.customer.findFirst({
      where: {
@@ -118,6 +177,11 @@ const existingCustomer = await prisma.customer.findFirst({
 ```typescript
 GET /api/customers/check-duplicate?name=NombreCliente&excludeId=uuid
 ```
+
+**Características**:
+- ✅ Requiere autenticación (cualquier usuario autenticado puede validar)
+- ✅ **Búsqueda GLOBAL**: Consulta todos los clientes sin filtrar por permisos
+- ✅ Previene duplicados entre todos los usuarios
 
 **Parámetros**:
 - `name` (requerido): Nombre del cliente a verificar

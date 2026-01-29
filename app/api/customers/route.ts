@@ -82,8 +82,19 @@ export async function GET() {
 }
 
 // POST - Crear un nuevo cliente
+// NOTA: Cualquier usuario autenticado puede crear clientes
 export async function POST(request: NextRequest) {
   try {
+    // Verificar autenticación
+    const permissions = await getUserPermissions();
+
+    if (!permissions.isAuthenticated) {
+      return NextResponse.json(
+        { error: "No autorizado" },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { customerName, imageBase64, infraestructureType, description } = body;
 
@@ -95,6 +106,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar si ya existe un cliente con el mismo nombre
+    // IMPORTANTE: Esta búsqueda es global (no filtrada por permisos) para evitar duplicados
     const existingCustomer = await prisma.customer.findFirst({
       where: {
         customerName: {
@@ -111,6 +123,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Crear el cliente
     const customer = await prisma.customer.create({
       data: {
         customerName: customerName.trim(),
@@ -119,6 +132,26 @@ export async function POST(request: NextRequest) {
         description: description || null,
       },
     });
+
+    // Si el usuario NO tiene acceso a todos los clientes (no es admin),
+    // asignarlo automáticamente al cliente que acaba de crear
+    // Esto garantiza que el usuario pueda ver y gestionar el cliente inmediatamente
+    if (!permissions.allCustomers && permissions.userId) {
+      try {
+        await prisma.userCustomer.create({
+          data: {
+            userId: permissions.userId,
+            customerId: customer.id,
+          },
+        });
+      } catch (error: any) {
+        // Si ya existe la relación (código P2002), no es un error crítico
+        if (error.code !== 'P2002') {
+          console.error("Error creating user-customer assignment:", error);
+          // No fallar la creación del cliente por un error de asignación
+        }
+      }
+    }
 
     return NextResponse.json(customer, { status: 201 });
   } catch (error: any) {
