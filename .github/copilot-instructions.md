@@ -297,10 +297,20 @@ const needsRefresh = !token || !tokenExpiresAt ||
 
 ### Authorization Levels
 
-| Role | Permissions |
-|------|-------------|
-| `ADMIN` | Full access to all customers, can sync data, manage users |
-| `USER` | Access only to assigned customers via `UserCustomer` |
+| Permission | ADMIN (`allCustomers=true`) | USER (`allCustomers=false`) |
+|------------|----------------------------|----------------------------|
+| **View customers** | All customers | Only assigned customers via `UserCustomer` |
+| **Create customers** | ✅ Yes (auto-visible) | ✅ Yes (auto-assigned to created customer) |
+| **Edit customers** | ✅ All customers | Only assigned customers |
+| **Delete customers** | ✅ All customers | Only assigned customers |
+| **Sync operations** | ✅ Yes | ❌ No |
+| **User management** | ✅ Yes | ❌ No |
+
+**Key Points**:
+- 🔓 **Any authenticated user** can create customers (not just admins)
+- 🎯 **Non-admin users** are automatically assigned to customers they create
+- 🔍 **Duplicate validation** checks ALL customers globally (regardless of user permissions)
+- 👁️ **Viewing** customers remains filtered by user permissions
 
 ### Route Protection
 
@@ -323,9 +333,12 @@ const needsRefresh = !token || !tokenExpiresAt ||
 const permissions = await getUserPermissions();
 // Returns:
 // - isAuthenticated: boolean
-// - isAdmin: boolean
 // - userId: string
-// - allowedCustomerIds: string[] (empty for admin = no restrictions)
+// - canAccessRepos: boolean
+// - canAccessCustomers: boolean
+// - allCustomers: boolean (admin = true, user = false)
+// - canAccessAdmin: boolean
+// - allowedCustomerIds: string[] (empty array if allCustomers=true)
 ```
 
 ---
@@ -346,11 +359,12 @@ const permissions = await getUserPermissions();
 ### Customers
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/customers` | List customers (filtered by permissions) |
+| GET | `/api/customers` | List customers (filtered by user permissions) |
 | GET | `/api/customers/[id]` | Get customer details |
-| POST | `/api/customers` | Create customer |
+| POST | `/api/customers` | Create customer (any authenticated user) |
 | PUT | `/api/customers/[id]` | Update customer |
 | DELETE | `/api/customers/[id]` | Delete customer |
+| GET | `/api/customers/check-duplicate` | Check if customer name exists (global search) |
 | GET | `/api/customers/tenants` | Get tenants for customer |
 
 ### Environments

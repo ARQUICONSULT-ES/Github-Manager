@@ -33,10 +33,10 @@ interface EnvironmentDetail {
 }
 
 interface EnvironmentComparePageProps {
-  tenantId: string;
-  environmentName: string;
-  compareTenantId: string;
-  compareEnvironmentName: string;
+  environments: Array<{
+    tenantId: string;
+    environmentName: string;
+  }>;
 }
 
 interface ComparisonResult {
@@ -45,30 +45,22 @@ interface ComparisonResult {
     name: string;
     publisher: string;
     publishedAs: string;
-    left?: InstalledApp;
-    right?: InstalledApp;
-    versionDiff: boolean;
-    nameDiff: boolean;
-    publisherDiff: boolean;
-    publishedAsDiff: boolean;
-    onlyInLeft: boolean;
-    onlyInRight: boolean;
+    installations: (InstalledApp | undefined)[];
+    hasDiff: boolean;
+    onlyInEnvironments: number[]; // índices de entornos donde existe
   }>;
 }
 
 export function EnvironmentComparePage({ 
-  tenantId, 
-  environmentName, 
-  compareTenantId, 
-  compareEnvironmentName 
+  environments: initialEnvironments
 }: EnvironmentComparePageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toasts, removeToast, error: showError } = useToast();
-  const [leftEnvironment, setLeftEnvironment] = useState<EnvironmentDetail | null>(null);
-  const [rightEnvironment, setRightEnvironment] = useState<EnvironmentDetail | null>(null);
+  const [environments, setEnvironments] = useState<EnvironmentDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
+  const [latestVersions, setLatestVersions] = useState<Record<string, string>>({});
   
   // Inicializar filtros desde URL
   const [hideMicrosoftApps, setHideMicrosoftApps] = useState(() => {
@@ -81,7 +73,8 @@ export function EnvironmentComparePage({
   });
   
   const [showCompareModal, setShowCompareModal] = useState(false);
-  const [changingSide, setChangingSide] = useState<'left' | 'right'>('left');
+  const [changingIndex, setChangingIndex] = useState<number>(-1);
+  const [isAddingNew, setIsAddingNew] = useState(false);
   const [availableEnvironments, setAvailableEnvironments] = useState<Array<{
     tenantId: string;
     name: string;
@@ -122,28 +115,50 @@ export function EnvironmentComparePage({
 
   useEffect(() => {
     loadEnvironments();
-  }, [tenantId, environmentName, compareTenantId, compareEnvironmentName]);
+  }, [JSON.stringify(initialEnvironments)]);
+
+  // Cargar aplicaciones del catálogo para obtener las últimas versiones
+  useEffect(() => {
+    const fetchApplications = async () => {
+      try {
+        const response = await fetch('/api/applications');
+        if (response.ok) {
+          const applications: Application[] = await response.json();
+          const versionsMap: Record<string, string> = {};
+          applications.forEach(app => {
+            if (app.latestReleaseVersion) {
+              versionsMap[app.id] = app.latestReleaseVersion;
+            }
+          });
+          setLatestVersions(versionsMap);
+        }
+      } catch (error) {
+        console.error('Error fetching applications:', error);
+      }
+    };
+
+    fetchApplications();
+  }, []);
 
   const loadEnvironments = async () => {
     setLoading(true);
     try {
-      const [leftResponse, rightResponse] = await Promise.all([
-        fetch(`/api/environments/${encodeURIComponent(tenantId)}/${encodeURIComponent(environmentName)}`),
-        fetch(`/api/environments/${encodeURIComponent(compareTenantId)}/${encodeURIComponent(compareEnvironmentName)}`)
-      ]);
+      const requests = initialEnvironments.map(env =>
+        fetch(`/api/environments/${encodeURIComponent(env.tenantId)}/${encodeURIComponent(env.environmentName)}`)
+      );
 
-      if (!leftResponse.ok || !rightResponse.ok) {
+      const responses = await Promise.all(requests);
+
+      if (responses.some(r => !r.ok)) {
         throw new Error("Error al cargar los entornos");
       }
 
-      const leftData = await leftResponse.json();
-      const rightData = await rightResponse.json();
+      const envData = await Promise.all(responses.map(r => r.json()));
 
-      setLeftEnvironment(leftData);
-      setRightEnvironment(rightData);
+      setEnvironments(envData);
 
       // Compute comparison
-      compareEnvironments(leftData, rightData);
+      compareEnvironments(envData);
     } catch (err) {
       console.error("Error loading environments:", err);
       showError("No se pudieron cargar los entornos para comparar");
@@ -152,54 +167,73 @@ export function EnvironmentComparePage({
     }
   };
 
-  const compareEnvironments = (left: EnvironmentDetail, right: EnvironmentDetail) => {
-    const leftAppsMap = new Map(left.installedApps.map(app => [app.id, app]));
-    const rightAppsMap = new Map(right.installedApps.map(app => [app.id, app]));
-    const allAppIds = new Set([...leftAppsMap.keys(), ...rightAppsMap.keys()]);
+  const compareEnvironments = (envs: EnvironmentDetail[]) => {
+    // Crear mapas de apps para cada entorno
+    const envAppsMaps = envs.map(env => new Map(env.installedApps.map(app => [app.id, app])));
+    
+    // Obtener todos los IDs únicos de aplicaciones
+    const allAppIds = new Set<string>();
+    envAppsMaps.forEach(map => {
+      map.forEach((_, id) => allAppIds.add(id));
+    });
 
     const allApps: ComparisonResult['allApps'] = [];
 
     allAppIds.forEach(appId => {
-      const leftApp = leftAppsMap.get(appId);
-      const rightApp = rightAppsMap.get(appId);
+      // Obtener la app de cada entorno
+      const installations = envAppsMaps.map(map => map.get(appId));
       
-      // Use left or right app metadata (they should be the same for the ID)
-      const metadata = leftApp || rightApp!;
+      // Usar la primera app encontrada para metadata
+      const metadata = installations.find(app => app !== undefined)!;
+      
+      // Calcular en qué entornos existe
+      const onlyInEnvironments = installations
+        .map((app, idx) => app ? idx : -1)
+        .filter(idx => idx !== -1);
+      
+      // Verificar si hay diferencias
+      let hasDiff = false;
+      const firstApp = installations.find(app => app);
+      if (firstApp && onlyInEnvironments.length > 1) {
+        for (const installation of installations) {
+          if (installation && (
+            installation.version !== firstApp.version ||
+            installation.name !== firstApp.name ||
+            installation.publisher !== firstApp.publisher ||
+            installation.publishedAs !== firstApp.publishedAs
+          )) {
+            hasDiff = true;
+            break;
+          }
+        }
+      }
       
       allApps.push({
         id: appId,
         name: metadata.name,
         publisher: metadata.publisher,
         publishedAs: metadata.publishedAs,
-        left: leftApp,
-        right: rightApp,
-        versionDiff: leftApp && rightApp ? leftApp.version !== rightApp.version : false,
-        nameDiff: leftApp && rightApp ? leftApp.name !== rightApp.name : false,
-        publisherDiff: leftApp && rightApp ? leftApp.publisher !== rightApp.publisher : false,
-        publishedAsDiff: leftApp && rightApp ? leftApp.publishedAs !== rightApp.publishedAs : false,
-        onlyInLeft: !!leftApp && !rightApp,
-        onlyInRight: !leftApp && !!rightApp
+        installations,
+        hasDiff,
+        onlyInEnvironments
       });
     });
 
-    // Sort by: 1) matching apps, 2) apps with differences, 3) only left, 4) only right, then by name
+    // Sort by: 1) matching apps in all, 2) apps with differences, 3) apps in some environments, then by name
     allApps.sort((a, b) => {
-      // Determine categories
-      const aHasDiff = a.versionDiff || a.nameDiff || a.publisherDiff || a.publishedAsDiff;
-      const bHasDiff = b.versionDiff || b.nameDiff || b.publisherDiff || b.publishedAsDiff;
-      
       let aCategory: number;
       let bCategory: number;
       
-      if (a.onlyInLeft) aCategory = 2;
-      else if (a.onlyInRight) aCategory = 3;
-      else if (aHasDiff) aCategory = 1;
-      else aCategory = 0; // matching
+      const aInAll = a.onlyInEnvironments.length === envs.length;
+      const bInAll = b.onlyInEnvironments.length === envs.length;
       
-      if (b.onlyInLeft) bCategory = 2;
-      else if (b.onlyInRight) bCategory = 3;
-      else if (bHasDiff) bCategory = 1;
-      else bCategory = 0; // matching
+      if (a.onlyInEnvironments.length < envs.length) aCategory = 2;
+      else if (a.hasDiff) aCategory = 1;
+      else aCategory = 0; // matching in all
+      
+      if (b.onlyInEnvironments.length < envs.length) bCategory = 2;
+      else if (b.hasDiff) bCategory = 1;
+      else bCategory = 0; // matching in all
       
       if (aCategory !== bCategory) {
         return aCategory - bCategory;
@@ -212,17 +246,19 @@ export function EnvironmentComparePage({
     setComparison({ allApps });
   };
 
-  const loadAvailableEnvironments = async (customerId: string, excludeTenantId: string, excludeName: string) => {
+  const loadAvailableEnvironments = async (customerId: string) => {
     setLoadingEnvironments(true);
     try {
       const response = await fetch(`/api/environments?customerId=${customerId}`);
       if (response.ok) {
-        const environments = await response.json();
-        // Filtrar entornos activos y excluir el entorno actual
-        const activeEnvs = environments.filter((env: any) => 
-          env.status?.toLowerCase() === 'active' && 
-          !(env.tenantId === excludeTenantId && env.name === excludeName)
-        );
+        const allEnvironments = await response.json();
+        // Filtrar entornos activos y excluir los entornos ya seleccionados
+        const activeEnvs = allEnvironments.filter((env: any) => {
+          if (env.status?.toLowerCase() !== 'active') return false;
+          
+          // Excluir todos los entornos ya en la comparación
+          return !environments.some(e => e.tenantId === env.tenantId && e.name === env.name);
+        });
         setAvailableEnvironments(activeEnvs.map((env: any) => ({
           tenantId: env.tenantId,
           name: env.name,
@@ -241,24 +277,64 @@ export function EnvironmentComparePage({
     }
   };
 
-  const handleChangeEnvironment = (side: 'left' | 'right') => {
-    const customerId = side === 'left' ? leftEnvironment?.customerId : rightEnvironment?.customerId;
-    const excludeTenantId = side === 'left' ? tenantId : compareTenantId;
-    const excludeName = side === 'left' ? environmentName : compareEnvironmentName;
+  const handleChangeEnvironment = (index: number) => {
+    const customerId = environments[index]?.customerId;
     
     if (customerId) {
-      setChangingSide(side);
-      loadAvailableEnvironments(customerId, excludeTenantId, excludeName);
+      setChangingIndex(index);
+      setIsAddingNew(false);
+      loadAvailableEnvironments(customerId);
       setShowCompareModal(true);
     }
   };
 
   const handleSelectEnvironment = (env: { tenantId: string; name: string }) => {
-    if (changingSide === 'left') {
-      router.push(`/environments/${env.tenantId}/${env.name}/compare/${compareTenantId}/${compareEnvironmentName}`);
+    let newEnvironments: Array<{tenantId: string; environmentName: string}>;
+    
+    if (isAddingNew) {
+      // Añadir nuevo entorno
+      newEnvironments = [
+        ...initialEnvironments,
+        { tenantId: env.tenantId, environmentName: env.name }
+      ];
     } else {
-      router.push(`/environments/${tenantId}/${environmentName}/compare/${env.tenantId}/${env.name}`);
+      // Reemplazar entorno existente
+      newEnvironments = [...initialEnvironments];
+      newEnvironments[changingIndex] = { tenantId: env.tenantId, environmentName: env.name };
     }
+    
+    // Construir URL con query params
+    const params = new URLSearchParams();
+    newEnvironments.forEach((e, idx) => {
+      params.append(`env${idx}`, `${e.tenantId}/${e.environmentName}`);
+    });
+    
+    // Cerrar el modal antes de navegar
+    setShowCompareModal(false);
+    router.push(`/environments/compare?${params.toString()}`);
+  };
+
+  const handleAddEnvironment = () => {
+    const customerId = environments[0]?.customerId;
+    if (customerId && environments.length < 6) { // Máximo 6 entornos
+      setIsAddingNew(true);
+      setChangingIndex(-1);
+      loadAvailableEnvironments(customerId);
+      setShowCompareModal(true);
+    }
+  };
+
+  const handleRemoveEnvironment = (index: number) => {
+    if (environments.length <= 2) return; // Mínimo 2 entornos
+    
+    const newEnvironments = initialEnvironments.filter((_, idx) => idx !== index);
+    
+    const params = new URLSearchParams();
+    newEnvironments.forEach((e, idx) => {
+      params.append(`env${idx}`, `${e.tenantId}/${e.environmentName}`);
+    });
+    
+    router.push(`/environments/compare?${params.toString()}`);
   };
 
   const getTypeColor = (type?: string | null) => {
@@ -301,108 +377,12 @@ export function EnvironmentComparePage({
     );
   }
 
-  if (!leftEnvironment || !rightEnvironment) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <svg
-          className="w-16 h-16 text-red-500 mb-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={1.5}
-            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-          No se pudieron cargar los entornos
-        </h3>
-        <button
-          onClick={() => router.back()}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-        >
-          Volver
-        </button>
-      </div>
-    );
-  }
-
-  const renderEnvironmentHeader = (env: EnvironmentDetail, side: 'left' | 'right') => (
-    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-      <div className="flex items-start gap-4">
-        {/* Customer Image */}
-        <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-lg">
-          {env.customerImage ? (
-            <img 
-              src={env.customerImage} 
-              alt={env.customerName} 
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <span>{env.customerName.charAt(0).toUpperCase()}</span>
-          )}
-        </div>
-
-        {/* Environment Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-3 mb-1">
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white truncate">
-                {env.name}
-              </h2>
-              {env.type && (
-                <span className={`px-2 py-0.5 text-xs font-medium rounded ${getTypeColor(env.type)}`}>
-                  {env.type}
-                </span>
-              )}
-            </div>
-            <button
-              onClick={() => handleChangeEnvironment(side)}
-              className="px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded transition-colors flex items-center gap-1 flex-shrink-0"
-              title="Cambiar entorno"
-            >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Cambiar
-            </button>
-          </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-            {env.customerName}
-          </p>
-
-          {/* Details Grid */}
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="flex items-center gap-1">
-              <svg className="w-3 h-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <div className="min-w-0">
-                <p className="text-gray-500 dark:text-gray-400">App Version</p>
-                <p className="font-medium text-gray-900 dark:text-white truncate" title={env.applicationVersion || undefined}>
-                  {env.applicationVersion || 'N/A'}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1">
-              <svg className="w-3 h-3 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
-              </svg>
-              <div className="min-w-0">
-                <p className="text-gray-500 dark:text-gray-400">Platform</p>
-                <p className="font-medium text-gray-900 dark:text-white truncate" title={env.platformVersion || undefined}>
-                  {env.platformVersion || 'N/A'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  // Determinar el número de columnas para el grid
+  const gridCols = environments.length === 2 ? 'lg:grid-cols-2' : 
+                   environments.length === 3 ? 'lg:grid-cols-3' : 
+                   environments.length === 4 ? 'lg:grid-cols-4' :
+                   environments.length === 5 ? 'lg:grid-cols-5' :
+                   'lg:grid-cols-6';
 
   const renderAppCard = (app: InstalledApp | undefined, highlightColor?: string, environmentName?: string, hasDiff?: {name?: boolean, publisher?: boolean, publishedAs?: boolean, version?: boolean}) => {
     if (!app) {
@@ -413,12 +393,28 @@ export function EnvironmentComparePage({
       );
     }
 
+    // Verificar si la instalación está desactualizada
+    const isOutdated = isVersionOutdated(app.version, latestVersions[app.id]);
+
     return (
       <div 
-        className={`p-2 rounded ${
+        className={`relative p-2 rounded border ${
+          isOutdated 
+            ? 'border-orange-300 dark:border-orange-600' 
+            : 'border-transparent'
+        } ${
           highlightColor || 'bg-white dark:bg-gray-900'
         }`}
       >
+        {/* Indicador de obsolescencia */}
+        {isOutdated && (
+          <div className="absolute -top-2.5 -right-1 flex items-center gap-0.5 px-1 py-0.5 bg-orange-500 text-white text-[8px] font-semibold rounded-full shadow-sm" title="Versión desactualizada">
+            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <span className="hidden sm:inline">Desact.</span>
+          </div>
+        )}
         <div className="flex items-center justify-between gap-2 mb-1">
           <span className={`px-1.5 py-0.5 text-xs font-medium rounded ${
             hasDiff?.publishedAs ? 'bg-orange-200 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300' : getPublishedAsColor(app.publishedAs)
@@ -438,7 +434,7 @@ export function EnvironmentComparePage({
     if (hideMicrosoftApps && app.publisher.toLowerCase() === 'microsoft') {
       return false;
     }
-    if (hideMatching && !app.onlyInLeft && !app.onlyInRight && !app.versionDiff && !app.nameDiff && !app.publisherDiff && !app.publishedAsDiff) {
+    if (hideMatching && app.onlyInEnvironments.length === environments.length && !app.hasDiff) {
       return false;
     }
     return true;
@@ -446,17 +442,102 @@ export function EnvironmentComparePage({
 
   // Calculate statistics
   const stats = {
-    onlyInLeft: filteredApps.filter(app => app.onlyInLeft).length,
-    onlyInRight: filteredApps.filter(app => app.onlyInRight).length,
-    inBoth: filteredApps.filter(app => !app.onlyInLeft && !app.onlyInRight).length,
-    inBothWithDiff: filteredApps.filter(app => !app.onlyInLeft && !app.onlyInRight && (app.versionDiff || app.nameDiff || app.publisherDiff || app.publishedAsDiff)).length
+    inAll: filteredApps.filter(app => app.onlyInEnvironments.length === environments.length).length,
+    withDiff: filteredApps.filter(app => app.onlyInEnvironments.length === environments.length && app.hasDiff).length,
+    partial: filteredApps.filter(app => app.onlyInEnvironments.length > 0 && app.onlyInEnvironments.length < environments.length).length
   };
+
+  const renderEnvironmentHeader = (env: EnvironmentDetail, index: number, canRemove: boolean) => (
+    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+      <div className="flex gap-3 items-start">
+        {/* Customer Image */}
+        <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-lg">
+          {env.customerImage ? (
+            <img 
+              src={env.customerImage} 
+              alt={env.customerName} 
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <span>{env.customerName.charAt(0).toUpperCase()}</span>
+          )}
+        </div>
+
+        {/* Environment Info */}
+        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+          {/* Fila superior: Nombre + Botones */}
+          <div className="flex items-start justify-between gap-2 mb-0.5">
+            <h2 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-white break-words flex-1 min-w-0 leading-tight">
+              {env.name}
+            </h2>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <button
+                onClick={() => handleChangeEnvironment(index)}
+                className="p-1.5 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded transition-colors flex items-center justify-center flex-shrink-0"
+                title="Cambiar entorno"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+              {canRemove && (
+                <button
+                  onClick={() => handleRemoveEnvironment(index)}
+                  className="p-1.5 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 border border-red-200 dark:border-red-800 rounded transition-colors flex items-center justify-center flex-shrink-0"
+                  title="Eliminar entorno"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Tipo de entorno */}
+          {env.type && (
+            <div className="mb-1">
+              <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${getTypeColor(env.type)}`}>
+                {env.type}
+              </span>
+            </div>
+          )}
+
+          {/* App Version y Platform - se estiran hacia la izquierda */}
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <div className="min-w-0 flex-1">
+                <p className="text-gray-500 dark:text-gray-400 text-[10px] leading-tight">App Version</p>
+                <p className="font-medium text-gray-900 dark:text-white truncate text-xs leading-tight" title={env.applicationVersion || undefined}>
+                  {env.applicationVersion || 'N/A'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+              </svg>
+              <div className="min-w-0 flex-1">
+                <p className="text-gray-500 dark:text-gray-400 text-[10px] leading-tight">Platform</p>
+                <p className="font-medium text-gray-900 dark:text-white truncate text-xs leading-tight" title={env.platformVersion || undefined}>
+                  {env.platformVersion || 'N/A'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
       {/* Back Button */}
       <button
-        onClick={() => router.back()}
+        onClick={() => router.push('/environments')}
         className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -471,38 +552,40 @@ export function EnvironmentComparePage({
           Comparación de Entornos
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
-          Comparando aplicaciones instaladas entre los dos entornos
+          Comparando aplicaciones instaladas entre {environments.length} entornos
         </p>
       </div>
 
       {/* Environment Headers */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {renderEnvironmentHeader(leftEnvironment, 'left')}
-        {renderEnvironmentHeader(rightEnvironment, 'right')}
+      <div className="flex flex-col lg:flex-row gap-4">
+        <div className={`grid grid-cols-1 ${gridCols} gap-4 flex-1`}>
+          {environments.map((env, index) => 
+            renderEnvironmentHeader(env, index, environments.length > 2)
+          )}
+        </div>
+        {environments.length < 6 && (
+          <div className="lg:w-64 flex-shrink-0">
+            <div className="bg-white dark:bg-gray-900 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-6 flex items-center justify-center h-full min-h-[150px]">
+              <button
+                onClick={handleAddEnvironment}
+                className="flex flex-col items-center gap-2 text-gray-600 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
+              >
+                <div className="w-12 h-12 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </div>
+                <span className="text-sm font-medium">Añadir entorno</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Comparison Summary */}
       {comparison && (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-red-500 rounded flex items-center justify-center">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-red-900 dark:text-red-100">
-                    {stats.onlyInLeft}
-                  </p>
-                  <p className="text-xs text-red-700 dark:text-red-300">
-                    Solo izquierda
-                  </p>
-                </div>
-              </div>
-            </div>
-
+          <div className="grid grid-cols-3 gap-3">
             <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
               <div className="flex items-center gap-2">
                 <div className="w-10 h-10 bg-green-500 rounded flex items-center justify-center">
@@ -513,16 +596,16 @@ export function EnvironmentComparePage({
                 <div className="flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-2xl font-bold text-green-900 dark:text-green-100">
-                      {stats.inBoth}
+                      {stats.inAll}
                     </p>
-                    {stats.inBothWithDiff > 0 && (
+                    {stats.withDiff > 0 && (
                       <p className="text-[10px] text-orange-600 dark:text-orange-400 font-medium">
-                        ({stats.inBothWithDiff} diferentes)
+                        ({stats.withDiff} dif.)
                       </p>
                     )}
                   </div>
                   <p className="text-xs text-green-700 dark:text-green-300">
-                    En ambos
+                    En todos
                   </p>
                 </div>
               </div>
@@ -532,15 +615,33 @@ export function EnvironmentComparePage({
               <div className="flex items-center gap-2">
                 <div className="w-10 h-10 bg-red-500 rounded flex items-center justify-center">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-red-900 dark:text-red-100">
-                    {stats.onlyInRight}
+                    {stats.partial}
                   </p>
                   <p className="text-xs text-red-700 dark:text-red-300">
-                    Solo derecha
+                    Solo en algunos
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 bg-blue-500 rounded flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                    {filteredApps.length}
+                  </p>
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    Total mostradas
                   </p>
                 </div>
               </div>
@@ -599,23 +700,27 @@ export function EnvironmentComparePage({
       {/* Detailed Comparison - Unified List */}
       {comparison && filteredApps.length > 0 && (
         <div className="space-y-2">
-            {/* Header */}
-          <div className="grid grid-cols-[2fr_1fr_1fr] gap-3 px-3 pb-2 border-b border-gray-200 dark:border-gray-700">
+          {/* Header */}
+          <div className="grid gap-3 px-3 pb-2 border-b border-gray-200 dark:border-gray-700" style={{
+            gridTemplateColumns: `2fr repeat(${environments.length}, 1fr)`
+          }}>
             <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">Aplicación</div>
-            <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">{leftEnvironment.name}</div>
-            <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">{rightEnvironment.name}</div>
+            {environments.map((env, idx) => (
+              <div key={idx} className="text-xs font-semibold text-gray-700 dark:text-gray-300 truncate" title={env.name}>
+                {env.name}
+              </div>
+            ))}
           </div>
 
           {/* App Rows */}
           <div className="space-y-1">
             {filteredApps.map((app) => {
               let highlightColor = '';
-              const hasDiff = app.versionDiff || app.nameDiff || app.publisherDiff || app.publishedAsDiff;
               
-              if (app.onlyInLeft || app.onlyInRight) {
-                // Apps only in one environment: light red
+              if (app.onlyInEnvironments.length < environments.length) {
+                // Apps only in some environments: light red
                 highlightColor = 'bg-red-100/70 dark:bg-red-900/20';
-              } else if (hasDiff) {
+              } else if (app.hasDiff) {
                 // Apps with differences: orange
                 highlightColor = 'bg-orange-100/70 dark:bg-orange-900/20';
               } else {
@@ -626,49 +731,30 @@ export function EnvironmentComparePage({
               return (
                 <div 
                   key={app.id}
-                  className={`grid grid-cols-[2fr_1fr_1fr] gap-3 p-2 rounded ${highlightColor}`}
+                  className={`grid gap-3 p-2 rounded ${highlightColor}`}
+                  style={{
+                    gridTemplateColumns: `2fr repeat(${environments.length}, 1fr)`
+                  }}
                 >
                   {/* App Name Column */}
                   <div className="flex flex-col justify-center min-w-0">
-                    <h4 className={`font-semibold text-sm truncate mb-0.5 ${
-                      app.nameDiff ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'
-                    }`}>
+                    <h4 className="font-semibold text-sm truncate mb-0.5 text-gray-900 dark:text-white">
                       {app.name}
                     </h4>
-                    <p className={`text-xs truncate ${
-                      app.publisherDiff ? 'text-orange-600 dark:text-orange-400 font-semibold' : 'text-gray-600 dark:text-gray-400'
-                    }`}>{app.publisher}</p>
+                    <p className="text-xs truncate text-gray-600 dark:text-gray-400">{app.publisher}</p>
                   </div>
 
-                  {/* Left Environment */}
-                  <div>
-                    {renderAppCard(
-                      app.left, 
-                      hasDiff ? 'border-orange-300 dark:border-orange-600 bg-orange-50/30 dark:bg-orange-900/10' : undefined,
-                      leftEnvironment.name,
-                      {
-                        name: app.nameDiff,
-                        publisher: app.publisherDiff,
-                        publishedAs: app.publishedAsDiff,
-                        version: app.versionDiff
-                      }
-                    )}
-                  </div>
-
-                  {/* Right Environment */}
-                  <div>
-                    {renderAppCard(
-                      app.right, 
-                      hasDiff ? 'border-orange-300 dark:border-orange-600 bg-orange-50/30 dark:bg-orange-900/10' : undefined,
-                      rightEnvironment.name,
-                      {
-                        name: app.nameDiff,
-                        publisher: app.publisherDiff,
-                        publishedAs: app.publishedAsDiff,
-                        version: app.versionDiff
-                      }
-                    )}
-                  </div>
+                  {/* Environment Columns */}
+                  {app.installations.map((installation, idx) => (
+                    <div key={idx}>
+                      {renderAppCard(
+                        installation, 
+                        undefined,
+                        environments[idx].name,
+                        { version: app.hasDiff }
+                      )}
+                    </div>
+                  ))}
                 </div>
               );
             })}
@@ -688,13 +774,13 @@ export function EnvironmentComparePage({
       )}
 
       {/* Compare Modal */}
-      {showCompareModal && leftEnvironment && rightEnvironment && (
+      {showCompareModal && environments.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Cambiar entorno {changingSide === 'left' ? 'izquierdo' : 'derecho'}
+                {isAddingNew ? 'Añadir nuevo entorno' : `Cambiar entorno ${changingIndex + 1}`}
               </h3>
               <button
                 onClick={() => setShowCompareModal(false)}

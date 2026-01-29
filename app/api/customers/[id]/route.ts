@@ -50,6 +50,27 @@ export async function PUT(
       );
     }
 
+    // Verificar si ya existe otro cliente con el mismo nombre
+    // IMPORTANTE: Esta búsqueda es global (no filtrada por permisos) para evitar duplicados
+    const existingCustomer = await prisma.customer.findFirst({
+      where: {
+        customerName: {
+          equals: customerName.trim(),
+          mode: 'insensitive',
+        },
+        NOT: {
+          id: id, // Excluir el cliente actual
+        },
+      },
+    });
+
+    if (existingCustomer) {
+      return NextResponse.json(
+        { error: "Ya existe otro cliente con este nombre" },
+        { status: 409 }
+      );
+    }
+
     const customer = await prisma.customer.update({
       where: { id },
       data: {
@@ -61,8 +82,24 @@ export async function PUT(
     });
 
     return NextResponse.json(customer);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error updating customer:", error);
+    
+    // Manejar error de unique constraint de Prisma
+    if (error.code === 'P2002') {
+      return NextResponse.json(
+        { error: "Ya existe otro cliente con este nombre" },
+        { status: 409 }
+      );
+    }
+    
+    if (error.code === 'P2025') {
+      return NextResponse.json(
+        { error: "Cliente no encontrado" },
+        { status: 404 }
+      );
+    }
+    
     return NextResponse.json(
       { error: "Error al actualizar el cliente" },
       { status: 500 }
