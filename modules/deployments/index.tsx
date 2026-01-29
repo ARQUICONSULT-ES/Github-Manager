@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAllEnvironments } from "@/modules/customers/hooks/useAllEnvironments";
 import { useApplications } from "@/modules/applications/hooks/useApplications";
+import { useAllInstalledApps } from "@/modules/customers/hooks/useAllInstalledApps";
 import { useDeployment } from "./hooks/useDeployment";
 import { EnvironmentSelector } from "./components/EnvironmentSelector";
 import { ApplicationList } from "./components/ApplicationList";
@@ -21,6 +22,7 @@ import type { Tenant } from "@/modules/customers/types";
 export function DeploymentsPage() {
   const { environments, loading: loadingEnvs } = useAllEnvironments();
   const { applications, isLoading: loadingApps } = useApplications();
+  const { installedApps } = useAllInstalledApps();
   const searchParams = useSearchParams();
   const {
     selectedEnvironment,
@@ -98,6 +100,16 @@ export function DeploymentsPage() {
   );
 
   const selectedAppIds = selectedApplications.map((app: Application) => app.id);
+
+  // Get installed app IDs for the selected environment
+  const installedAppIds = selectedEnvironment
+    ? installedApps
+        .filter(app => 
+          app.tenantId === selectedEnvironment.tenantId && 
+          app.environmentName === selectedEnvironment.name
+        )
+        .map(app => app.id)
+    : [];
 
   const handleConfigureTenant = async (tenantId: string) => {
     try {
@@ -448,6 +460,7 @@ export function DeploymentsPage() {
         applications={applications}
         onSelectApplications={addApplications}
         selectedApplicationIds={selectedAppIds}
+        installedAppIds={installedAppIds}
       />
 
       {/* Deployment Progress Modal */}

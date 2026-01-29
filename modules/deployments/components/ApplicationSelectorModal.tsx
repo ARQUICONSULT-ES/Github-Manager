@@ -15,6 +15,7 @@ interface ApplicationSelectorModalProps {
   applications: Application[];
   onSelectApplications: (apps: Array<{ app: Application; versionType: VersionType }>) => void;
   selectedApplicationIds: string[];
+  installedAppIds: string[];
 }
 
 export function ApplicationSelectorModal({
@@ -23,17 +24,22 @@ export function ApplicationSelectorModal({
   applications,
   onSelectApplications,
   selectedApplicationIds,
+  installedAppIds,
 }: ApplicationSelectorModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedApps, setSelectedApps] = useState<Map<string, AppSelection>>(new Map());
+  const [showOnlyInstalled, setShowOnlyInstalled] = useState(true);
 
   if (!isOpen) return null;
 
-  const filteredApplications = applications.filter(app => 
-    (app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    app.publisher.toLowerCase().includes(searchQuery.toLowerCase())) &&
-    !selectedApplicationIds.includes(app.id)
-  );
+  const filteredApplications = applications.filter(app => {
+    const matchesSearch = app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          app.publisher.toLowerCase().includes(searchQuery.toLowerCase());
+    const notAlreadySelected = !selectedApplicationIds.includes(app.id);
+    const matchesInstalledFilter = !showOnlyInstalled || installedAppIds.includes(app.id);
+    
+    return matchesSearch && notAlreadySelected && matchesInstalledFilter;
+  });
 
   const handleToggleVersion = (app: Application, versionType: VersionType) => {
     setSelectedApps(prev => {
@@ -110,6 +116,27 @@ export function ApplicationSelectorModal({
               autoFocus
             />
           </div>
+
+          {/* Filter: Mostrar solo instaladas */}
+          <label className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-md border cursor-pointer transition-colors mt-3 ${
+            showOnlyInstalled
+              ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-600"
+              : "border-gray-300 bg-white hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800"
+          }`}>
+            <input
+              type="checkbox"
+              checked={showOnlyInstalled}
+              onChange={(e) => setShowOnlyInstalled(e.target.checked)}
+              className="w-4 h-4 text-blue-600 bg-white border-blue-500 rounded focus:ring-blue-500 focus:ring-2"
+            />
+            <span className={`text-xs font-medium ${
+              showOnlyInstalled
+                ? "text-blue-700 dark:text-blue-300"
+                : "text-gray-700 dark:text-gray-300"
+            }`}>
+              Mostrar solo instaladas
+            </span>
+          </label>
         </div>
 
         {/* Application List */}
