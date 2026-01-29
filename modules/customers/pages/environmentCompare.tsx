@@ -285,6 +285,8 @@ export function EnvironmentComparePage({
       params.append(`env${idx}`, `${e.tenantId}/${e.environmentName}`);
     });
     
+    // Cerrar el modal antes de navegar
+    setShowCompareModal(false);
     router.push(`/environments/compare?${params.toString()}`);
   };
 
@@ -406,8 +408,8 @@ export function EnvironmentComparePage({
   };
 
   const renderEnvironmentHeader = (env: EnvironmentDetail, index: number, canRemove: boolean) => (
-    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-      <div className="flex items-start gap-4">
+    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+      <div className="flex gap-3 items-start">
         {/* Customer Image */}
         <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-lg">
           {env.customerImage ? (
@@ -422,66 +424,65 @@ export function EnvironmentComparePage({
         </div>
 
         {/* Environment Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start sm:items-center justify-between gap-2 mb-1">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <h2 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-white break-words line-clamp-2">
-                {env.name}
-              </h2>
-              {env.type && (
-                <span className={`px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs font-medium rounded ${getTypeColor(env.type)} whitespace-nowrap flex-shrink-0`}>
-                  {env.type}
-                </span>
-              )}
-            </div>
+        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+          {/* Fila superior: Nombre + Botones */}
+          <div className="flex items-start justify-between gap-2 mb-0.5">
+            <h2 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-white break-words flex-1 min-w-0 leading-tight">
+              {env.name}
+            </h2>
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <button
                 onClick={() => handleChangeEnvironment(index)}
-                className="p-1.5 sm:px-2 sm:py-1 text-[10px] sm:text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded transition-colors flex items-center gap-1 flex-shrink-0"
+                className="p-1.5 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded transition-colors flex items-center justify-center flex-shrink-0"
                 title="Cambiar entorno"
               >
-                <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                <span className="hidden sm:inline whitespace-nowrap">Cambiar</span>
               </button>
               {canRemove && (
                 <button
                   onClick={() => handleRemoveEnvironment(index)}
-                  className="p-1 text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 border border-red-200 dark:border-red-800 rounded transition-colors flex items-center justify-center flex-shrink-0"
+                  className="p-1.5 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 border border-red-200 dark:border-red-800 rounded transition-colors flex items-center justify-center flex-shrink-0"
                   title="Eliminar entorno"
                 >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               )}
             </div>
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-            {env.customerName}
-          </p>
 
-          {/* Details Grid */}
+          {/* Tipo de entorno */}
+          {env.type && (
+            <div className="mb-1">
+              <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${getTypeColor(env.type)}`}>
+                {env.type}
+              </span>
+            </div>
+          )}
+
+          {/* App Version y Platform - se estiran hacia la izquierda */}
           <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="flex items-center gap-1">
-              <svg className="w-3 h-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              <div className="min-w-0">
-                <p className="text-gray-500 dark:text-gray-400">App Version</p>
-                <p className="font-medium text-gray-900 dark:text-white truncate" title={env.applicationVersion || undefined}>
+              <div className="min-w-0 flex-1">
+                <p className="text-gray-500 dark:text-gray-400 text-[10px] leading-tight">App Version</p>
+                <p className="font-medium text-gray-900 dark:text-white truncate text-xs leading-tight" title={env.applicationVersion || undefined}>
                   {env.applicationVersion || 'N/A'}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-1">
-              <svg className="w-3 h-3 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
               </svg>
-              <div className="min-w-0">
-                <p className="text-gray-500 dark:text-gray-400">Platform</p>
-                <p className="font-medium text-gray-900 dark:text-white truncate" title={env.platformVersion || undefined}>
+              <div className="min-w-0 flex-1">
+                <p className="text-gray-500 dark:text-gray-400 text-[10px] leading-tight">Platform</p>
+                <p className="font-medium text-gray-900 dark:text-white truncate text-xs leading-tight" title={env.platformVersion || undefined}>
                   {env.platformVersion || 'N/A'}
                 </p>
               </div>
@@ -496,7 +497,7 @@ export function EnvironmentComparePage({
     <div className="space-y-6">
       {/* Back Button */}
       <button
-        onClick={() => router.back()}
+        onClick={() => router.push('/environments')}
         className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
