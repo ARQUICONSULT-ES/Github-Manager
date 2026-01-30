@@ -177,17 +177,17 @@ export async function POST(request: NextRequest) {
 
     // 7. Crear el Pull Request
     const prBody = `
-## 🔄 Sincronización de Versiones
+## 🔄 Version Synchronization
 
-### Cambios realizados:
+### Changes made:
 - **settings.json (repoVersion)**: \`${settingsVersion}\`
 - **app.json (version)**: \`${appJsonVersion}\`
 
-### ⚠️ Importante:
-Ambas versiones deben estar sincronizadas para mantener la coherencia en el repositorio CI/CD.
+### ⚠️ Important:
+Both versions must be synchronized to maintain consistency in the CI/CD repository.
 
 ---
-*PR generado automáticamente desde CENTRA*
+*PR automatically generated from CENTRA*
     `.trim();
 
     const createPrRes = await fetch(
@@ -200,7 +200,7 @@ Ambas versiones deben estar sincronizadas para mantener la coherencia en el repo
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          title: `Sincronizar versiones: ${settingsVersion} / ${appJsonVersion}`,
+          title: `Synchronize versions: ${settingsVersion} / ${appJsonVersion}`,
           body: prBody,
           head: branchName,
           base: baseBranch,
