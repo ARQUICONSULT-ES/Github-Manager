@@ -779,6 +779,10 @@ export function RepoCard({
             {isMenuOpen && (
               <div className="absolute right-0 bottom-full mb-1 w-56 rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 z-50 border border-gray-200 dark:border-gray-700">
                 <div className="py-1">
+                  {/* Sección Releases */}
+                  <div className="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Releases
+                  </div>
                   <button
                     onClick={openPrereleaseModal}
                     disabled={!canCreateRelease().canCreate}
@@ -790,6 +794,14 @@ export function RepoCard({
                     </svg>
                     Crear prerelease
                   </button>
+                  
+                  {/* Divisor */}
+                  <div className="my-1 border-t border-gray-200 dark:border-gray-700"></div>
+                  
+                  {/* Sección Mantenimiento */}
+                  <div className="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Mantenimiento
+                  </div>
                   <button
                     onClick={openConfirmModal}
                     className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white transition-colors"
