@@ -561,6 +561,16 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
   // Función para analizar un archivo .app y extraer sus dependencias
   const analyzeAppFile = async (file: File): Promise<AppFileDependencyInfo> => {
     try {
+      // Verificar tamaño del archivo antes de enviarlo (límite: 50MB)
+      const maxSize = 50 * 1024 * 1024; // 50MB en bytes
+      if (file.size > maxSize) {
+        return {
+          fileName: file.name,
+          manifest: null,
+          error: `El archivo es demasiado grande (${(file.size / 1024 / 1024).toFixed(2)}MB). El límite es de 50MB`,
+        };
+      }
+
       const formData = new FormData();
       formData.append("file", file);
 
@@ -576,25 +586,72 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
           manifest: data.manifest,
         };
       } else {
-        const errorData = await res.json();
+        let errorMessage = "Error al analizar archivo";
+        
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          // Si no se puede parsear el JSON del error
+          if (res.status === 500) {
+            errorMessage = "Error del servidor al procesar el archivo. Puede que sea demasiado grande o esté corrupto";
+          }
+        }
+
         return {
           fileName: file.name,
           manifest: null,
-          error: errorData.error || "Error al analizar archivo",
+          error: errorMessage,
         };
       }
     } catch (error) {
+      let errorMessage = "Error desconocido";
+      
+      if (error instanceof Error) {
+        if (error.message.includes("Failed to fetch") || error.message.includes("Network")) {
+          errorMessage = "Error de red. Verifica tu conexión a internet";
+        } else if (error.message.includes("body") || error.message.includes("FormData")) {
+          errorMessage = "El archivo es demasiado grande para procesarse";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
       return {
         fileName: file.name,
         manifest: null,
-        error: error instanceof Error ? error.message : "Error desconocido",
+        error: errorMessage,
       };
     }
   };
 
   const handleAddFileDependencies = async (files: File[]) => {
-    setFilesToUpload([...filesToUpload, ...files]);
-    const newFiles: FileDependency[] = files.map(file => ({
+    const validFiles: File[] = [];
+    const newAppFileDeps = new Map(appFileDependencies);
+
+    // Analizar cada archivo .app para extraer sus dependencias
+    for (const file of files) {
+      const depInfo = await analyzeAppFile(file);
+      
+      // Si hay error al analizar el archivo, mostrar toast y no añadirlo
+      if (depInfo.error) {
+        showError(`Error al analizar ${file.name}: ${depInfo.error}`);
+        continue; // No añadir este archivo
+      }
+      
+      // Si el análisis fue exitoso, añadir a la lista de archivos válidos
+      validFiles.push(file);
+      newAppFileDeps.set(file.name, depInfo);
+    }
+
+    // Solo continuar si hay archivos válidos
+    if (validFiles.length === 0) {
+      return;
+    }
+
+    // Añadir solo los archivos que se analizaron correctamente
+    setFilesToUpload([...filesToUpload, ...validFiles]);
+    const newFiles: FileDependency[] = validFiles.map(file => ({
       name: file.name,
       path: `dependencies/${file.name}`,
       sha: "pending",
@@ -602,13 +659,6 @@ export function DependenciesModal({ isOpen, onClose, owner, repo, allRepos }: De
     }));
     const combinedFiles = [...fileDependencies, ...newFiles];
     setFileDependencies(combinedFiles);
-
-    // Analizar cada archivo .app para extraer sus dependencias
-    const newAppFileDeps = new Map(appFileDependencies);
-    for (const file of files) {
-      const depInfo = await analyzeAppFile(file);
-      newAppFileDeps.set(file.name, depInfo);
-    }
     setAppFileDependencies(newAppFileDeps);
 
     // Recalcular warnings de archivos
