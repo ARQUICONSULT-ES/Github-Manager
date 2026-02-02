@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useEffect } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import type { EnvironmentWithCustomer } from '@/modules/customers/types';
 
@@ -14,6 +14,7 @@ export interface EnvironmentAdvancedFilters {
 export function useEnvironmentFilter(environments: EnvironmentWithCustomer[]) {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const isInitialMount = useRef(true);
 
   // Inicializar filtros avanzados desde URL con valores por defecto
   const getInitialFilters = useCallback((): EnvironmentAdvancedFilters => {
@@ -34,6 +35,12 @@ export function useEnvironmentFilter(environments: EnvironmentWithCustomer[]) {
 
   // Sincronizar con URL cuando cambian los filtros o el searchQuery
   useEffect(() => {
+    // Evitar actualizar la URL en el primer render (ya tiene los valores correctos)
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
     const newParams = new URLSearchParams(window.location.search);
     
     // Actualizar parámetro de búsqueda
