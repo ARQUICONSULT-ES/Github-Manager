@@ -83,14 +83,25 @@ export async function GET(
       customerName: environment.tenant.customer.customerName,
       customerImage: environment.tenant.customer.imageBase64,
       tenantDescription: environment.tenant.description,
-      installedApps: environment.installedApps.map((app) => ({
-        id: app.id,
-        name: app.name,
-        version: app.version,
-        publisher: app.publisher,
-        publishedAs: app.publishedAs,
-        state: app.state,
-      })),
+      installedApps: await Promise.all(
+        environment.installedApps.map(async (app) => {
+          // Get latest release version from Application catalog
+          const catalogApp = await prisma.application.findUnique({
+            where: { id: app.id },
+            select: { latestReleaseVersion: true },
+          });
+
+          return {
+            id: app.id,
+            name: app.name,
+            version: app.version,
+            publisher: app.publisher,
+            publishedAs: app.publishedAs,
+            state: app.state,
+            latestReleaseVersion: catalogApp?.latestReleaseVersion || null,
+          };
+        })
+      ),
     };
 
     return NextResponse.json(response);

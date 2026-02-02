@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/modules/shared/hooks/useToast";
 import ToastContainer from "@/modules/shared/components/ToastContainer";
 import { isVersionOutdated } from "@/modules/applications/utils/versionComparison";
-import type { Application } from "@/modules/applications/types";
 
 interface InstalledApp {
   id: string;
@@ -14,6 +13,7 @@ interface InstalledApp {
   publisher: string;
   publishedAs: string;
   state?: string | null;
+  latestReleaseVersion?: string | null; // Latest version from catalog
 }
 
 interface EnvironmentDetail {
@@ -60,7 +60,6 @@ export function EnvironmentComparePage({
   const [environments, setEnvironments] = useState<EnvironmentDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
-  const [latestVersions, setLatestVersions] = useState<Record<string, string>>({});
   
   // Inicializar filtros desde URL
   const [hideMicrosoftApps, setHideMicrosoftApps] = useState(() => {
@@ -116,29 +115,6 @@ export function EnvironmentComparePage({
   useEffect(() => {
     loadEnvironments();
   }, [JSON.stringify(initialEnvironments)]);
-
-  // Cargar aplicaciones del catálogo para obtener las últimas versiones
-  useEffect(() => {
-    const fetchApplications = async () => {
-      try {
-        const response = await fetch('/api/applications');
-        if (response.ok) {
-          const applications: Application[] = await response.json();
-          const versionsMap: Record<string, string> = {};
-          applications.forEach(app => {
-            if (app.latestReleaseVersion) {
-              versionsMap[app.id] = app.latestReleaseVersion;
-            }
-          });
-          setLatestVersions(versionsMap);
-        }
-      } catch (error) {
-        console.error('Error fetching applications:', error);
-      }
-    };
-
-    fetchApplications();
-  }, []);
 
   const loadEnvironments = async () => {
     setLoading(true);
@@ -394,7 +370,8 @@ export function EnvironmentComparePage({
     }
 
     // Verificar si la instalación está desactualizada
-    const isOutdated = isVersionOutdated(app.version, latestVersions[app.id]);
+    // Use latestReleaseVersion from the app object if available
+    const isOutdated = isVersionOutdated(app.version, app.latestReleaseVersion);
 
     return (
       <div 

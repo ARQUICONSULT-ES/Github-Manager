@@ -25,174 +25,219 @@ interface AppJsonContent {
  * POST /api/applications/sync-github
  * Sincroniza aplicaciones desde repositorios de GitHub
  * Lee los archivos app.json de los repositorios para extraer información de las aplicaciones
+ * Envía actualizaciones en tiempo real mediante Server-Sent Events (SSE)
  */
 export async function POST(request: NextRequest) {
-  try {
-    const permissions = await getUserPermissions();
+  const permissions = await getUserPermissions();
 
-    if (!permissions.isAuthenticated) {
-      return NextResponse.json(
-        { error: "No autorizado" },
-        { status: 401 }
-      );
-    }
-
-    // Usar el token de administrador de GitHub configurado en variables de entorno
-    const githubToken = process.env.GITHUB_ADMIN_TOKEN;
-
-    if (!githubToken) {
-      return NextResponse.json(
-        { error: "Token de administrador de GitHub no configurado en el servidor" },
-        { status: 500 }
-      );
-    }
-
-    // 1. Obtener todos los repositorios del usuario
-    console.log("Obteniendo repositorios de GitHub...");
-    const repos = await getAllUserRepos(githubToken);
-    console.log(`Se encontraron ${repos.length} repositorios`);
-
-    const syncResults = {
-      total: repos.length,
-      processed: 0,
-      created: 0,
-      updated: 0,
-      skipped: 0,
-      errors: [] as Array<{ repo: string; error: string }>,
-    };
-
-    // 2. Procesar cada repositorio para buscar app.json
-    for (const repo of repos) {
-      try {
-        console.log(`Procesando repositorio: ${repo.full_name}`);
-        
-        // Intentar obtener el archivo app.json del repositorio
-        const appJsonContent = await getAppJsonFromRepo(
-          githubToken,
-          repo.owner.login,
-          repo.name,
-          repo.default_branch
-        );
-
-        if (!appJsonContent) {
-          console.log(`  ⊘ No se encontró app.json en ${repo.name}`);
-          syncResults.skipped++;
-          syncResults.processed++;
-          continue;
-        }
-
-        // Validar que tenga las propiedades requeridas
-        if (!appJsonContent.id || !appJsonContent.name || !appJsonContent.publisher) {
-          console.log(`  ⚠ app.json incompleto en ${repo.name}`);
-          syncResults.errors.push({
-            repo: repo.name,
-            error: "app.json no contiene id, name o publisher"
-          });
-          syncResults.skipped++;
-          syncResults.processed++;
-          continue;
-        }
-
-        // Intentar obtener el logo de la aplicación
-        const logoBase64 = await getAppLogoFromRepo(
-          githubToken,
-          repo.owner.login,
-          repo.name,
-          repo.default_branch,
-          appJsonContent
-        );
-
-        // Obtener la última release del repositorio
-        const latestRelease = await getLatestRelease(
-          githubToken,
-          repo.owner.login,
-          repo.name
-        );
-
-        // Obtener la última prerelease del repositorio
-        const latestPrerelease = await getLatestPrerelease(
-          githubToken,
-          repo.owner.login,
-          repo.name
-        );
-
-        // Construir la URL del repositorio
-        const githubUrl = repo.html_url;
-
-        // 3. Crear o actualizar la aplicación en la base de datos
-        const existingApp = await prisma.application.findUnique({
-          where: { id: appJsonContent.id },
-        });
-
-        if (existingApp) {
-          // Actualizar aplicación existente
-          await prisma.application.update({
-            where: { id: appJsonContent.id },
-            data: {
-              name: appJsonContent.name,
-              publisher: appJsonContent.publisher,
-              githubRepoName: repo.name,
-              githubUrl: githubUrl,
-              latestReleaseVersion: latestRelease?.version,
-              latestReleaseDate: latestRelease?.date,
-              latestPrereleaseVersion: latestPrerelease?.version,
-              latestPrereleaseDate: latestPrerelease?.date,
-              logoBase64: logoBase64 || existingApp.logoBase64, // Mantener logo existente si no se encuentra uno nuevo
-              idRanges: (appJsonContent.idRanges || existingApp.idRanges || []) as any, // Mantener idRanges existentes si no se encuentran nuevos
-              updatedAt: new Date(),
-            },
-          });
-          console.log(`  ✓ Actualizada: ${appJsonContent.name}`);
-          syncResults.updated++;
-        } else {
-          // Crear nueva aplicación
-          await prisma.application.create({
-            data: {
-              id: appJsonContent.id,
-              name: appJsonContent.name,
-              publisher: appJsonContent.publisher,
-              githubRepoName: repo.name,
-              githubUrl: githubUrl,
-              latestReleaseVersion: latestRelease?.version,
-              latestReleaseDate: latestRelease?.date,
-              latestPrereleaseVersion: latestPrerelease?.version,
-              latestPrereleaseDate: latestPrerelease?.date,
-              logoBase64: logoBase64,
-              idRanges: (appJsonContent.idRanges || []) as any,
-            },
-          });
-          console.log(`  ✓ Creada: ${appJsonContent.name}`);
-          syncResults.created++;
-        }
-
-        syncResults.processed++;
-      } catch (error) {
-        console.error(`Error procesando ${repo.name}:`, error);
-        syncResults.errors.push({
-          repo: repo.name,
-          error: error instanceof Error ? error.message : "Error desconocido"
-        });
-        syncResults.processed++;
-      }
-    }
-
-    console.log("Sincronización completada:", syncResults);
-
-    return NextResponse.json({
-      success: true,
-      message: "Sincronización completada",
-      results: syncResults,
-    });
-  } catch (error) {
-    console.error("Error en sincronización de aplicaciones:", error);
+  if (!permissions.isAuthenticated) {
     return NextResponse.json(
-      { 
-        error: "Error al sincronizar aplicaciones",
-        details: error instanceof Error ? error.message : "Error desconocido"
-      },
+      { error: "No autorizado" },
+      { status: 401 }
+    );
+  }
+
+  // Usar el token de administrador de GitHub configurado en variables de entorno
+  const githubToken = process.env.GITHUB_ADMIN_TOKEN;
+
+  if (!githubToken) {
+    return NextResponse.json(
+      { error: "Token de administrador de GitHub no configurado en el servidor" },
       { status: 500 }
     );
   }
+
+  // Crear un stream para enviar eventos SSE
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      const sendEvent = (data: any) => {
+        const message = `data: ${JSON.stringify(data)}\n\n`;
+        controller.enqueue(encoder.encode(message));
+      };
+
+      try {
+        // 1. Obtener todos los repositorios del usuario
+        console.log("Obteniendo repositorios de GitHub...");
+        const repos = await getAllUserRepos(githubToken);
+        console.log(`Se encontraron ${repos.length} repositorios`);
+
+        sendEvent({ type: 'total', count: repos.length });
+
+        const syncResults = {
+          total: repos.length,
+          processed: 0,
+          created: 0,
+          updated: 0,
+          skipped: 0,
+          errors: [] as Array<{ repo: string; error: string }>,
+        };
+
+        // 2. Procesar cada repositorio para buscar app.json
+        for (const repo of repos) {
+          try {
+            console.log(`Procesando repositorio: ${repo.full_name}`);
+            sendEvent({ type: 'processing', repo: repo.full_name });
+            
+            // Intentar obtener el archivo app.json del repositorio
+            const appJsonContent = await getAppJsonFromRepo(
+              githubToken,
+              repo.owner.login,
+              repo.name,
+              repo.default_branch
+            );
+
+            if (!appJsonContent) {
+              console.log(`  ⊘ No se encontró app.json en ${repo.name}`);
+              syncResults.skipped++;
+              syncResults.processed++;
+              sendEvent({ 
+                type: 'skipped', 
+                repo: repo.name,
+                reason: 'No se encontró app.json'
+              });
+              continue;
+            }
+
+            // Validar que tenga las propiedades requeridas
+            if (!appJsonContent.id || !appJsonContent.name || !appJsonContent.publisher) {
+              console.log(`  ⚠ app.json incompleto en ${repo.name}`);
+              const error = "app.json no contiene id, name o publisher";
+              syncResults.errors.push({
+                repo: repo.name,
+                error
+              });
+              syncResults.skipped++;
+              syncResults.processed++;
+              sendEvent({ 
+                type: 'skipped', 
+                repo: repo.name,
+                reason: error
+              });
+              continue;
+            }
+
+            // Intentar obtener el logo de la aplicación
+            const logoBase64 = await getAppLogoFromRepo(
+              githubToken,
+              repo.owner.login,
+              repo.name,
+              repo.default_branch,
+              appJsonContent
+            );
+
+            // Obtener la última release del repositorio
+            const latestRelease = await getLatestRelease(
+              githubToken,
+              repo.owner.login,
+              repo.name
+            );
+
+            // Obtener la última prerelease del repositorio
+            const latestPrerelease = await getLatestPrerelease(
+              githubToken,
+              repo.owner.login,
+              repo.name
+            );
+
+            // Construir la URL del repositorio
+            const githubUrl = repo.html_url;
+
+            // 3. Crear o actualizar la aplicación en la base de datos
+            const existingApp = await prisma.application.findUnique({
+              where: { id: appJsonContent.id },
+            });
+
+            if (existingApp) {
+              // Actualizar aplicación existente
+              await prisma.application.update({
+                where: { id: appJsonContent.id },
+                data: {
+                  name: appJsonContent.name,
+                  publisher: appJsonContent.publisher,
+                  githubRepoName: repo.name,
+                  githubUrl: githubUrl,
+                  latestReleaseVersion: latestRelease?.version,
+                  latestReleaseDate: latestRelease?.date,
+                  latestPrereleaseVersion: latestPrerelease?.version,
+                  latestPrereleaseDate: latestPrerelease?.date,
+                  logoBase64: logoBase64 || existingApp.logoBase64,
+                  idRanges: (appJsonContent.idRanges || existingApp.idRanges || []) as any,
+                  updatedAt: new Date(),
+                },
+              });
+              console.log(`  ✓ Actualizada: ${appJsonContent.name}`);
+              syncResults.updated++;
+              sendEvent({ 
+                type: 'updated', 
+                name: appJsonContent.name,
+                repo: repo.name
+              });
+            } else {
+              // Crear nueva aplicación
+              await prisma.application.create({
+                data: {
+                  id: appJsonContent.id,
+                  name: appJsonContent.name,
+                  publisher: appJsonContent.publisher,
+                  githubRepoName: repo.name,
+                  githubUrl: githubUrl,
+                  latestReleaseVersion: latestRelease?.version,
+                  latestReleaseDate: latestRelease?.date,
+                  latestPrereleaseVersion: latestPrerelease?.version,
+                  latestPrereleaseDate: latestPrerelease?.date,
+                  logoBase64: logoBase64,
+                  idRanges: (appJsonContent.idRanges || []) as any,
+                },
+              });
+              console.log(`  ✓ Creada: ${appJsonContent.name}`);
+              syncResults.created++;
+              sendEvent({ 
+                type: 'created', 
+                name: appJsonContent.name,
+                repo: repo.name
+              });
+            }
+
+            syncResults.processed++;
+          } catch (error) {
+            console.error(`Error procesando ${repo.name}:`, error);
+            const errorMsg = error instanceof Error ? error.message : "Error desconocido";
+            syncResults.errors.push({
+              repo: repo.name,
+              error: errorMsg
+            });
+            syncResults.processed++;
+            sendEvent({ 
+              type: 'error', 
+              repo: repo.name,
+              error: errorMsg
+            });
+          }
+        }
+
+        console.log("Sincronización completada:", syncResults);
+        sendEvent({ type: 'complete', results: syncResults });
+        controller.close();
+      } catch (error) {
+        console.error("Error en sincronización de aplicaciones:", error);
+        sendEvent({ 
+          type: 'error', 
+          repo: 'general',
+          error: error instanceof Error ? error.message : "Error desconocido"
+        });
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  });
 }
 
 /**

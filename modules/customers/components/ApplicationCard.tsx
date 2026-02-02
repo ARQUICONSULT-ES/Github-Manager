@@ -6,10 +6,12 @@ import { isVersionOutdated } from "@/modules/applications/utils/versionCompariso
 
 interface ApplicationCardProps {
   application: InstalledAppWithEnvironment;
-  latestVersion?: string; // Versión más reciente de la aplicación para comparar
+  latestVersion?: string; // Deprecated: kept for backward compatibility, now using app.latestReleaseVersion
 }
 
 export function ApplicationCard({ application, latestVersion }: ApplicationCardProps) {
+  // Use latestReleaseVersion from the app object if available, fallback to prop
+  const effectiveLatestVersion = application.latestReleaseVersion || latestVersion;
   // Badge de tipo de aplicación (Global=Verde, Tenant=Azul, Dev=Rojo)
   const getTypeBadgeColor = (publishedAs: string) => {
     const typeLower = publishedAs.toLowerCase();
@@ -26,7 +28,7 @@ export function ApplicationCard({ application, latestVersion }: ApplicationCardP
   };
 
   // Verificar si la instalación está desactualizada (versión instalada < versión más reciente)
-  const isOutdated = isVersionOutdated(application.version, latestVersion);
+  const isOutdated = isVersionOutdated(application.version, effectiveLatestVersion);
 
   return (
     <Link 

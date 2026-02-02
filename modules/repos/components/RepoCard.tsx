@@ -64,7 +64,9 @@ export function RepoCard({
   const latestPrerelease: ReleaseInfo | null = preloadedInfo?.prerelease ?? null;
   const openPRCount = preloadedInfo?.openPRCount ?? 0;
   const branchCount = preloadedInfo?.branchCount ?? 0;
-  const isLoading = !preloadedInfo && !skipIndividualFetch && (workflowHook.isLoading || releaseHook.isLoading);
+  // isLoading considera: carga individual, o carga incremental externa (cuando aparece un repo nuevo al filtrar)
+  const isLoading = (!preloadedInfo && !skipIndividualFetch && (workflowHook.isLoading || releaseHook.isLoading)) || 
+                    (externalIsLoadingRelease && !preloadedInfo);
   const isLoadingCommits = releaseHook.isLoadingCommits;
   const releaseCommits: Commit[] = releaseHook.commits;
   const isUpdatingAlGo = workflowHook.isTriggering;

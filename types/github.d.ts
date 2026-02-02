@@ -51,3 +51,42 @@ export interface GitHubUser {
   following: number;
   created_at: string;
 }
+
+export interface GitHubPullRequest {
+  id: number;
+  number: number;
+  title: string;
+  state: 'open' | 'closed';
+  html_url: string;
+  created_at: string;
+  updated_at: string;
+  user: {
+    login: string;
+    avatar_url: string;
+  };
+  head: {
+    ref: string;
+    sha: string;
+  };
+  base: {
+    ref: string;
+  };
+  draft: boolean;
+  requested_reviewers?: Array<{
+    login: string;
+    avatar_url: string;
+  }>;
+  // Estado de los checks de CI/CD (Checks API v3)
+  checks?: {
+    // Conclusión general: success, failure, neutral, cancelled, timed_out, action_required, null
+    conclusion: 'success' | 'failure' | 'neutral' | 'cancelled' | 'timed_out' | 'action_required' | 'pending' | null;
+    // Estado: queued, in_progress, completed
+    status: 'queued' | 'in_progress' | 'completed' | null;
+    total_count: number;
+    check_runs: Array<{
+      name: string;
+      status: 'queued' | 'in_progress' | 'completed';
+      conclusion: 'success' | 'failure' | 'neutral' | 'cancelled' | 'timed_out' | 'action_required' | 'skipped' | null;
+    }>;
+  };
+}

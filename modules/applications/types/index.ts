@@ -26,3 +26,6 @@ export interface ApplicationFormData {
 export interface ApplicationsResponse {
   applications: Application[];
 }
+
+// Re-export tipos de sincronización
+export type { SyncProgressLog, SyncStats, SyncProgressModalProps } from './sync';

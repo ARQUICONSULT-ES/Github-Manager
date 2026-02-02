@@ -114,6 +114,7 @@ export interface InstalledAppWithEnvironment extends InstalledApp {
   customerImage?: string | null;
   environmentType?: string | null;
   environmentStatus?: string | null;
+  latestReleaseVersion?: string | null; // Latest version available from catalog
 }
 
 // Respuesta de la API de Business Central para aplicaciones instaladas

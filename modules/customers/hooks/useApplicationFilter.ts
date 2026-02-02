@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useEffect } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import type { InstalledAppWithEnvironment } from '@/modules/customers/types';
 import type { FilterConfig } from '@/modules/customers/types/filters';
@@ -55,6 +55,7 @@ export const installedAppFilterConfig: FilterConfig<InstalledAppWithEnvironment>
 export function useInstalledAppFilter(installedApps: InstalledAppWithEnvironment[]) {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const isInitialMount = useRef(true);
 
   // Inicializar filtros avanzados desde URL con valores por defecto
   const getInitialFilters = useCallback((): InstalledAppAdvancedFilters => {
@@ -73,6 +74,12 @@ export function useInstalledAppFilter(installedApps: InstalledAppWithEnvironment
 
   // Sincronizar con URL cuando cambian los filtros
   useEffect(() => {
+    // Evitar actualizar la URL en el primer render (ya tiene los valores correctos)
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
     const newParams = new URLSearchParams(window.location.search);
     
     // Actualizar parámetros de filtros

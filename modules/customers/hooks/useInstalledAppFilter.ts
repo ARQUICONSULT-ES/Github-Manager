@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useEffect } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import type { InstalledAppWithEnvironment } from '@/modules/customers/types';
 import type { FilterConfig } from '@/modules/customers/types/filters';
@@ -56,10 +56,11 @@ export const installedAppFilterConfig: FilterConfig<InstalledAppWithEnvironment>
 
 export function useInstalledAppFilter(
   installedApps: InstalledAppWithEnvironment[],
-  latestVersions: Record<string, string> = {}
+  latestVersions: Record<string, string> = {} // Deprecated: kept for backward compatibility, now using app.latestReleaseVersion
 ) {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const isInitialMount = useRef(true);
 
   // Inicializar filtros avanzados desde URL con valores por defecto
   const getInitialFilters = useCallback((): InstalledAppAdvancedFilters => {
@@ -80,6 +81,12 @@ export function useInstalledAppFilter(
 
   // Sincronizar con URL cuando cambian los filtros
   useEffect(() => {
+    // Evitar actualizar la URL en el primer render (ya tiene los valores correctos)
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
     const newParams = new URLSearchParams(window.location.search);
     
     // Actualizar parámetros de filtros
@@ -168,7 +175,8 @@ export function useInstalledAppFilter(
     // Filtrar solo las aplicaciones desactualizadas si está activado
     if (advancedFilters.showOnlyOutdated) {
       result = result.filter(app => {
-        const latestVersion = latestVersions[app.id];
+        // Use app.latestReleaseVersion directly from the API response
+        const latestVersion = app.latestReleaseVersion || latestVersions[app.id];
         return latestVersion && isVersionOutdated(app.version, latestVersion);
       });
     }

@@ -7,7 +7,6 @@ import { useToast } from "@/modules/shared/hooks/useToast";
 import ToastContainer from "@/modules/shared/components/ToastContainer";
 import { FilterDropdown } from "@/modules/shared/components/FilterDropdown";
 import { isVersionOutdated } from "@/modules/applications/utils/versionComparison";
-import type { Application } from "@/modules/applications/types";
 
 interface InstalledApp {
   id: string;
@@ -16,6 +15,7 @@ interface InstalledApp {
   publisher: string;
   publishedAs: string;
   state?: string | null;
+  latestReleaseVersion?: string | null; // Latest version from catalog
 }
 
 interface EnvironmentDetail {
@@ -52,7 +52,6 @@ export function EnvironmentDetailPage({ tenantId, environmentName }: Environment
   const [environment, setEnvironment] = useState<EnvironmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [latestVersions, setLatestVersions] = useState<Record<string, string>>({});
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [availableEnvironments, setAvailableEnvironments] = useState<Array<{
     tenantId: string;
@@ -71,7 +70,6 @@ export function EnvironmentDetailPage({ tenantId, environmentName }: Environment
 
   useEffect(() => {
     loadEnvironment();
-    loadLatestVersions();
   }, [tenantId, environmentName]);
 
   const loadEnvironment = async () => {
@@ -92,24 +90,6 @@ export function EnvironmentDetailPage({ tenantId, environmentName }: Environment
       showError("No se pudo cargar la información del entorno");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadLatestVersions = async () => {
-    try {
-      const response = await fetch('/api/applications');
-      if (response.ok) {
-        const applications: Application[] = await response.json();
-        const versionsMap: Record<string, string> = {};
-        applications.forEach(app => {
-          if (app.latestReleaseVersion) {
-            versionsMap[app.id] = app.latestReleaseVersion;
-          }
-        });
-        setLatestVersions(versionsMap);
-      }
-    } catch (error) {
-      console.error('Error fetching applications:', error);
     }
   };
 
@@ -223,7 +203,8 @@ export function EnvironmentDetailPage({ tenantId, environmentName }: Environment
 
     // Show only outdated filter
     if (filters.showOnlyOutdated) {
-      const latestVersion = latestVersions[app.id];
+      // Use app.latestReleaseVersion if available
+      const latestVersion = (app as any).latestReleaseVersion;
       if (!latestVersion || !isVersionOutdated(app.version, latestVersion)) {
         return false;
       }
@@ -610,7 +591,8 @@ export function EnvironmentDetailPage({ tenantId, environmentName }: Environment
         {filteredApps.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredApps.map((app) => {
-              const latestVersion = latestVersions[app.id];
+              // Use latestReleaseVersion from the app object if available
+              const latestVersion = (app as any).latestReleaseVersion;
               const isOutdated = isVersionOutdated(app.version, latestVersion);
               
               return (

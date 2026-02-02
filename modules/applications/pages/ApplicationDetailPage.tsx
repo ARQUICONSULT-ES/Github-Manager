@@ -6,6 +6,7 @@ import type { Application } from "@/modules/applications/types";
 import { useApplicationInstallations } from "@/modules/applications/hooks/useApplicationInstallations";
 import { useSyncSingleApp } from "@/modules/applications/hooks/useSyncSingleApp";
 import { InstallationsByCustomer } from "@/modules/applications/components/InstallationsByCustomer";
+import { SyncProgressModal } from "@/modules/applications/components/SyncProgressModal";
 import { countOutdatedInstallations, isVersionOutdated } from "@/modules/applications/utils/versionComparison";
 
 interface ApplicationDetailPageProps {
@@ -18,6 +19,7 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showOnlyOutdated, setShowOnlyOutdated] = useState(false);
+  const [showSyncModal, setShowSyncModal] = useState(false);
 
   const {
     installations,
@@ -31,6 +33,9 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
     isSyncing,
     error: syncError,
     success: syncSuccess,
+    logs,
+    stats,
+    resetSync,
   } = useSyncSingleApp(applicationId, (updatedApp) => {
     setApplication(updatedApp);
   });
@@ -72,6 +77,18 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
 
   const handleBack = () => {
     router.back();
+  };
+
+  const handleSyncApplication = async () => {
+    resetSync();
+    setShowSyncModal(true);
+    await syncApplication();
+  };
+
+  const handleCloseSyncModal = () => {
+    if (!isSyncing) {
+      setShowSyncModal(false);
+    }
   };
 
   if (loading) {
@@ -145,14 +162,46 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
           </div>
         </div>
         
-        {/* Botón de sincronización desde GitHub */}
-        {application.githubRepoName && (
-          <button
-            onClick={syncApplication}
-            disabled={isSyncing}
-            className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-wait rounded-lg transition-colors whitespace-nowrap flex-shrink-0"
-            title="Sincronizar desde GitHub"
-          >
+        {/* Botones de acción */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Botón de desplegar release */}
+          {application.latestReleaseVersion && (
+            <a
+              href={`/deployments?appIds=${application.id}&appVersions=release&appModes=Add`}
+              className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors whitespace-nowrap"
+              title="Desplegar esta versión"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <span className="hidden sm:inline">Desplegar release {application.latestReleaseVersion}</span>
+              <span className="sm:hidden">Release</span>
+            </a>
+          )}
+          
+          {/* Botón de desplegar prerelease */}
+          {application.latestPrereleaseVersion && (
+            <a
+              href={`/deployments?appIds=${application.id}&appVersions=prerelease&appModes=Add`}
+              className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors whitespace-nowrap"
+              title="Desplegar esta versión"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <span className="hidden sm:inline">Desplegar prerelease {application.latestPrereleaseVersion}</span>
+              <span className="sm:hidden">Prerelease</span>
+            </a>
+          )}
+          
+          {/* Botón de sincronización desde GitHub */}
+          {application.githubRepoName && (
+            <button
+              onClick={handleSyncApplication}
+              disabled={isSyncing}
+              className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-medium text-white bg-gray-600 hover:bg-gray-700 disabled:bg-gray-800 disabled:cursor-wait rounded-lg transition-colors whitespace-nowrap"
+              title="Sincronizar desde GitHub"
+            >
             {isSyncing ? (
               <>
                 <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -169,12 +218,22 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
                 <span className="hidden sm:inline">Sincronizar</span>
               </>
             )}
-          </button>
-        )}
+            </button>
+          )}
+        </div>
       </div>
 
+      {/* Modal de progreso de sincronización */}
+      <SyncProgressModal
+        isOpen={showSyncModal}
+        isSyncing={isSyncing}
+        logs={logs}
+        stats={stats}
+        onClose={handleCloseSyncModal}
+      />
+
       {/* Mensaje de éxito de sincronización */}
-      {syncSuccess && (
+      {syncSuccess && !showSyncModal && (
         <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 sm:p-4">
           <div className="flex items-start gap-2">
             <svg className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -193,7 +252,7 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
       )}
 
       {/* Mensaje de error de sincronización */}
-      {syncError && (
+      {syncError && !showSyncModal && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 sm:p-4">
           <div className="flex items-start gap-2">
             <svg className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -252,16 +311,18 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
                   </svg>
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-0.5">Última versión (Release)</p>
-                    <p className="text-xs sm:text-sm text-gray-900 dark:text-white font-medium font-mono">{application.latestReleaseVersion}</p>
-                    {application.latestReleaseDate && (
-                      <p className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                        {new Date(application.latestReleaseDate).toLocaleDateString('es-ES', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
-                      </p>
-                    )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="inline-flex items-center gap-1 text-xs sm:text-sm font-medium font-mono bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-md">{application.latestReleaseVersion}</p>
+                      {application.latestReleaseDate && (
+                        <span className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500">
+                          {new Date(application.latestReleaseDate).toLocaleDateString('es-ES', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -274,16 +335,18 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
                   </svg>
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-0.5">Última versión (Prerelease)</p>
-                    <p className="text-xs sm:text-sm text-gray-900 dark:text-white font-medium font-mono">{application.latestPrereleaseVersion}</p>
-                    {application.latestPrereleaseDate && (
-                      <p className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                        {new Date(application.latestPrereleaseDate).toLocaleDateString('es-ES', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
-                      </p>
-                    )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="inline-flex items-center gap-1 text-xs sm:text-sm font-medium font-mono bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-1 rounded-md">{application.latestPrereleaseVersion}</p>
+                      {application.latestPrereleaseDate && (
+                        <span className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500">
+                          {new Date(application.latestPrereleaseDate).toLocaleDateString('es-ES', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -326,11 +389,6 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
               </h2>
             </div>
             <div className="p-3 sm:p-4 md:p-5 space-y-3 sm:space-y-4">
-              <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 sm:p-4">
-                <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">Total instalaciones</p>
-                <p className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{installations.length}</p>
-              </div>
-              
               <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 sm:p-4">
                 <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">Clientes</p>
                 <p className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">

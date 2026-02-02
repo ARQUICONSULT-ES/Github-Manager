@@ -23,147 +23,156 @@ interface AppJsonContent {
 /**
  * POST /api/applications/[id]/sync
  * Sincroniza una aplicación específica desde su repositorio de GitHub
+ * Envía actualizaciones en tiempo real mediante Server-Sent Events (SSE)
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id } = await params;
-    const permissions = await getUserPermissions();
+  const { id } = await params;
+  const permissions = await getUserPermissions();
 
-    if (!permissions.isAuthenticated) {
-      return NextResponse.json(
-        { error: "No autorizado" },
-        { status: 401 }
-      );
-    }
-
-    // Obtener la aplicación existente
-    const application = await prisma.application.findUnique({
-      where: { id },
-    });
-
-    if (!application) {
-      return NextResponse.json(
-        { error: "Aplicación no encontrada" },
-        { status: 404 }
-      );
-    }
-
-    if (!application.githubRepoName || !application.githubUrl) {
-      return NextResponse.json(
-        { error: "Esta aplicación no tiene un repositorio de GitHub asociado" },
-        { status: 400 }
-      );
-    }
-
-    // Usar el token de administrador de GitHub
-    const githubToken = process.env.GITHUB_ADMIN_TOKEN;
-
-    if (!githubToken) {
-      return NextResponse.json(
-        { error: "Token de administrador de GitHub no configurado en el servidor" },
-        { status: 500 }
-      );
-    }
-
-    // Extraer owner del githubUrl
-    const urlParts = application.githubUrl.split('/');
-    const owner = urlParts[urlParts.length - 2];
-    const repoName = application.githubRepoName;
-
-    console.log(`Sincronizando aplicación ${application.name} desde ${owner}/${repoName}`);
-
-    // Obtener información del repositorio
-    const repoRes = await fetch(`${GITHUB_API_URL}/repos/${owner}/${repoName}`, {
-      headers: {
-        Authorization: `token ${githubToken}`,
-        Accept: "application/vnd.github.v3+json",
-      },
-      cache: "no-store",
-    });
-
-    if (!repoRes.ok) {
-      throw new Error(`No se pudo acceder al repositorio: ${repoRes.status}`);
-    }
-
-    const repo = await repoRes.json();
-    const defaultBranch = repo.default_branch || "main";
-
-    // Obtener app.json
-    const appJsonContent = await getAppJsonFromRepo(
-      githubToken,
-      owner,
-      repoName,
-      defaultBranch
-    );
-
-    if (!appJsonContent) {
-      return NextResponse.json(
-        { error: "No se encontró app.json en el repositorio" },
-        { status: 404 }
-      );
-    }
-
-    // Validar que el ID coincida
-    if (appJsonContent.id !== id) {
-      return NextResponse.json(
-        { 
-          error: `El ID en app.json (${appJsonContent.id}) no coincide con el ID de la aplicación (${id})` 
-        },
-        { status: 400 }
-      );
-    }
-
-    // Obtener logo
-    const logoBase64 = await getAppLogoFromRepo(
-      githubToken,
-      owner,
-      repoName,
-      defaultBranch,
-      appJsonContent
-    );
-
-    // Obtener releases
-    const latestRelease = await getLatestRelease(githubToken, owner, repoName);
-    const latestPrerelease = await getLatestPrerelease(githubToken, owner, repoName);
-
-    // Actualizar la aplicación
-    const updatedApp = await prisma.application.update({
-      where: { id },
-      data: {
-        name: appJsonContent.name,
-        publisher: appJsonContent.publisher,
-        githubRepoName: repoName,
-        githubUrl: repo.html_url,
-        latestReleaseVersion: latestRelease?.version,
-        latestReleaseDate: latestRelease?.date,
-        latestPrereleaseVersion: latestPrerelease?.version,
-        latestPrereleaseDate: latestPrerelease?.date,
-        logoBase64: logoBase64 || application.logoBase64,
-        idRanges: (appJsonContent.idRanges || application.idRanges || []) as any,
-        updatedAt: new Date(),
-      },
-    });
-
-    console.log(`✓ Aplicación sincronizada: ${updatedApp.name}`);
-
-    return NextResponse.json({
-      success: true,
-      message: "Aplicación sincronizada correctamente",
-      application: updatedApp,
-    });
-  } catch (error) {
-    console.error("Error en sincronización de aplicación:", error);
+  if (!permissions.isAuthenticated) {
     return NextResponse.json(
-      { 
-        error: "Error al sincronizar aplicación",
-        details: error instanceof Error ? error.message : "Error desconocido"
-      },
+      { error: "No autorizado" },
+      { status: 401 }
+    );
+  }
+
+  // Obtener la aplicación existente
+  const application = await prisma.application.findUnique({
+    where: { id },
+  });
+
+  if (!application) {
+    return NextResponse.json(
+      { error: "Aplicación no encontrada" },
+      { status: 404 }
+    );
+  }
+
+  if (!application.githubRepoName || !application.githubUrl) {
+    return NextResponse.json(
+      { error: "Esta aplicación no tiene un repositorio de GitHub asociado" },
+      { status: 400 }
+    );
+  }
+
+  // Usar el token de administrador de GitHub
+  const githubToken = process.env.GITHUB_ADMIN_TOKEN;
+
+  if (!githubToken) {
+    return NextResponse.json(
+      { error: "Token de administrador de GitHub no configurado en el servidor" },
       { status: 500 }
     );
   }
+
+  // Extraer owner del githubUrl
+  const urlParts = application.githubUrl.split('/');
+  const owner = urlParts[urlParts.length - 2];
+  const repoName = application.githubRepoName;
+
+  // Crear un stream para enviar eventos SSE
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      const sendEvent = (data: any) => {
+        const message = `data: ${JSON.stringify(data)}\n\n`;
+        controller.enqueue(encoder.encode(message));
+      };
+
+      try {
+        console.log(`Sincronizando aplicación ${application.name} desde ${owner}/${repoName}`);
+        sendEvent({ type: 'start', repo: `${owner}/${repoName}` });
+
+        // Obtener información del repositorio
+        const repoRes = await fetch(`${GITHUB_API_URL}/repos/${owner}/${repoName}`, {
+          headers: {
+            Authorization: `token ${githubToken}`,
+            Accept: "application/vnd.github.v3+json",
+          },
+          cache: "no-store",
+        });
+
+        if (!repoRes.ok) {
+          throw new Error(`No se pudo acceder al repositorio: ${repoRes.status}`);
+        }
+
+        const repo = await repoRes.json();
+        const defaultBranch = repo.default_branch || "main";
+
+        // Obtener app.json
+        const appJsonContent = await getAppJsonFromRepo(
+          githubToken,
+          owner,
+          repoName,
+          defaultBranch
+        );
+
+        if (!appJsonContent) {
+          throw new Error("No se encontró app.json en el repositorio");
+        }
+
+        // Validar que el ID coincida
+        if (appJsonContent.id !== id) {
+          throw new Error(`El ID en app.json (${appJsonContent.id}) no coincide con el ID de la aplicación (${id})`);
+        }
+
+        // Obtener logo
+        const logoBase64 = await getAppLogoFromRepo(
+          githubToken,
+          owner,
+          repoName,
+          defaultBranch,
+          appJsonContent
+        );
+
+        // Obtener releases
+        const latestRelease = await getLatestRelease(githubToken, owner, repoName);
+        const latestPrerelease = await getLatestPrerelease(githubToken, owner, repoName);
+
+        // Actualizar la aplicación
+        const updatedApp = await prisma.application.update({
+          where: { id },
+          data: {
+            name: appJsonContent.name,
+            publisher: appJsonContent.publisher,
+            githubRepoName: repoName,
+            githubUrl: repo.html_url,
+            latestReleaseVersion: latestRelease?.version,
+            latestReleaseDate: latestRelease?.date,
+            latestPrereleaseVersion: latestPrerelease?.version,
+            latestPrereleaseDate: latestPrerelease?.date,
+            logoBase64: logoBase64 || application.logoBase64,
+            idRanges: (appJsonContent.idRanges || application.idRanges || []) as any,
+            updatedAt: new Date(),
+          },
+        });
+
+        console.log(`✓ Aplicación sincronizada: ${updatedApp.name}`);
+        sendEvent({ type: 'updated', name: updatedApp.name });
+        sendEvent({ type: 'complete', application: updatedApp });
+        controller.close();
+      } catch (error) {
+        console.error("Error en sincronización de aplicación:", error);
+        const errorMsg = error instanceof Error ? error.message : "Error desconocido";
+        sendEvent({ 
+          type: 'error', 
+          error: errorMsg
+        });
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  });
 }
 
 /**

@@ -15,10 +15,21 @@ export async function GET(
 
     const { id: applicationId } = await params;
 
-    // Obtener todas las instalaciones de esta aplicación
+    // Obtener la aplicación para traer su latestReleaseVersion
+    const application = await prisma.application.findUnique({
+      where: { id: applicationId },
+      select: { latestReleaseVersion: true },
+    });
+
+    const latestReleaseVersion = application?.latestReleaseVersion || null;
+
+    // Obtener todas las instalaciones de esta aplicación (excluyendo SoftDeleted)
     const installations = await prisma.installedApp.findMany({
       where: {
         id: applicationId,
+        state: {
+          not: "SoftDeleted",
+        },
       },
       include: {
         environment: {
@@ -55,6 +66,7 @@ export async function GET(
       publisher: installation.publisher,
       publishedAs: installation.publishedAs,
       state: installation.state,
+      latestReleaseVersion: latestReleaseVersion,
       // Campos adicionales
       customerId: installation.environment.tenant.customerId,
       customerName: installation.environment.tenant.customer.customerName,

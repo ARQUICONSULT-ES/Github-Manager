@@ -59,7 +59,9 @@ export function DeploymentsPage() {
     if (!loadingEnvs && !loadingApps && environments.length > 0 && applications.length > 0 && !isInitialized) {
       const tenantId = searchParams.get('tenantId');
       const environmentName = searchParams.get('environmentName');
-      const appsParam = searchParams.get('apps');
+      const appIdsParam = searchParams.get('appIds');
+      const appVersionsParam = searchParams.get('appVersions');
+      const appModesParam = searchParams.get('appModes');
 
       // Restore selected environment
       if (tenantId && environmentName) {
@@ -72,21 +74,39 @@ export function DeploymentsPage() {
       }
 
       // Restore selected applications
-      if (appsParam) {
+      if (appIdsParam && appVersionsParam) {
         try {
-          const appsData: Array<{ id: string; versionType: VersionType; installMode?: 'Add' | 'ForceSync' }> = JSON.parse(appsParam);
-          const appsToAdd = appsData
-            .map(({ id, versionType, installMode }) => {
+          const appIds = appIdsParam.split(',');
+          const versionTypes = appVersionsParam.split(',');
+          const installModes = appModesParam ? appModesParam.split(',') : [];
+          
+          const appsToAdd = appIds
+            .map((id, index) => {
               const app = applications.find(a => a.id === id);
-              return app ? { app, versionType, installMode: installMode || 'Add' } : null;
+              const versionTypeStr = versionTypes[index] || 'release';
+              const installMode = (installModes[index] || 'Add') as 'Add' | 'ForceSync';
+              
+              // Parse version type and PR number
+              let versionType: VersionType = 'release';
+              let prNumber: number | undefined;
+              
+              if (versionTypeStr.startsWith('PR')) {
+                // Formato: PR64
+                versionType = 'pullrequest';
+                prNumber = parseInt(versionTypeStr.substring(2), 10);
+              } else {
+                versionType = versionTypeStr as VersionType;
+              }
+              
+              return app ? { app, versionType, prNumber, installMode } : null;
             })
-            .filter(Boolean) as Array<{ app: Application; versionType: VersionType; installMode: 'Add' | 'ForceSync' }>;
+            .filter(Boolean) as Array<{ app: Application; versionType: VersionType; prNumber?: number; installMode: 'Add' | 'ForceSync' }>;
           
           if (appsToAdd.length > 0) {
             addApplications(appsToAdd);
           }
         } catch (e) {
-          console.error('Error parsing apps from URL:', e);
+          console.error('Error parsing app parameters from URL:', e);
         }
       }
 
@@ -253,6 +273,8 @@ export function DeploymentsPage() {
           githubRepoName: app.githubRepoName,
           extracted: { repoOwner, repoName },
           finalRepoName,
+          versionType: app.versionType,
+          prNumber: app.prNumber,
         });
 
         // Seleccionar la versión según el versionType
@@ -267,6 +289,7 @@ export function DeploymentsPage() {
           version: version,
           githubRepoName: finalRepoName,
           versionType: app.versionType,
+          prNumber: app.prNumber, // Número del PR para descargar artifacts
           installMode: app.installMode || 'Add', // Default a 'Add' si no existe
         };
       });

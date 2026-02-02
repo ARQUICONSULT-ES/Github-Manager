@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import type { Application } from "@/modules/applications/types";
 
@@ -13,6 +13,7 @@ export interface ApplicationAdvancedFilters {
 export function useApplicationFilter(applications: Application[]) {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const isInitialMount = useRef(true);
 
   // Inicializar búsqueda desde URL
   const initialSearchQuery = searchParams.get('search') || '';
@@ -30,6 +31,12 @@ export function useApplicationFilter(applications: Application[]) {
 
   // Sincronizar con URL cuando cambian los filtros
   useEffect(() => {
+    // Evitar actualizar la URL en el primer render (ya tiene los valores correctos)
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
     const newParams = new URLSearchParams(window.location.search);
     
     // Actualizar búsqueda

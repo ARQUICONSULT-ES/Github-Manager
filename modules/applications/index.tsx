@@ -7,6 +7,7 @@ import { useApplicationFilter } from "@/modules/applications/hooks/useApplicatio
 import { useSyncFromGitHub } from "@/modules/applications/hooks/useSyncFromGitHub";
 import ApplicationList from "@/modules/applications/components/ApplicationList";
 import { ApplicationFilterPanel } from "@/modules/applications/components/ApplicationFilterPanel";
+import { SyncProgressModal } from "@/modules/applications/components/SyncProgressModal";
 import type { Application } from "@/modules/applications/types";
 
 export function ApplicationsPage() {
@@ -20,8 +21,8 @@ export function ApplicationsPage() {
     updateAdvancedFilters,
     clearAdvancedFilters,
   } = useApplicationFilter(applications);
-  const { syncFromGitHub, isSyncing, syncResults, error: syncError } = useSyncFromGitHub(refreshApplications);
-  const [showSyncResults, setShowSyncResults] = useState(false);
+  const { syncFromGitHub, isSyncing, syncResults, error: syncError, logs, stats, resetSync } = useSyncFromGitHub(refreshApplications);
+  const [showSyncModal, setShowSyncModal] = useState(false);
 
   const handleApplicationClick = (application: Application) => {
     router.push(`/applications/${application.id}`);
@@ -32,8 +33,15 @@ export function ApplicationsPage() {
   };
 
   const handleSyncFromGitHub = async () => {
+    resetSync();
+    setShowSyncModal(true);
     await syncFromGitHub();
-    setShowSyncResults(true);
+  };
+
+  const handleCloseSyncModal = () => {
+    if (!isSyncing) {
+      setShowSyncModal(false);
+    }
   };
 
   return (
@@ -148,63 +156,17 @@ export function ApplicationsPage() {
         onClearFilters={clearAdvancedFilters}
       />
 
-      {/* Resultados de sincronización */}
-      {showSyncResults && syncResults && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                Sincronización completada
-              </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
-                <div>
-                  <span className="text-gray-600 dark:text-gray-400">Total:</span>
-                  <span className="ml-1 font-medium text-gray-900 dark:text-white">{syncResults.total}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600 dark:text-gray-400">Procesados:</span>
-                  <span className="ml-1 font-medium text-gray-900 dark:text-white">{syncResults.processed}</span>
-                </div>
-                <div>
-                  <span className="text-green-600 dark:text-green-400">Creadas:</span>
-                  <span className="ml-1 font-medium text-green-700 dark:text-green-300">{syncResults.created}</span>
-                </div>
-                <div>
-                  <span className="text-blue-600 dark:text-blue-400">Actualizadas:</span>
-                  <span className="ml-1 font-medium text-blue-700 dark:text-blue-300">{syncResults.updated}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600 dark:text-gray-400">Omitidas:</span>
-                  <span className="ml-1 font-medium text-gray-900 dark:text-white">{syncResults.skipped}</span>
-                </div>
-              </div>
-              {syncResults.errors.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-800">
-                  <p className="text-xs font-medium text-red-600 dark:text-red-400 mb-1">
-                    Errores ({syncResults.errors.length}):
-                  </p>
-                  <ul className="text-xs text-red-600 dark:text-red-400 space-y-1 max-h-32 overflow-y-auto">
-                    {syncResults.errors.map((err, idx) => (
-                      <li key={idx}>• {err.repo}: {err.error}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-            <button
-              onClick={() => setShowSyncResults(false)}
-              className="ml-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Modal de progreso de sincronización */}
+      <SyncProgressModal
+        isOpen={showSyncModal}
+        isSyncing={isSyncing}
+        logs={logs}
+        stats={stats}
+        onClose={handleCloseSyncModal}
+      />
 
       {/* Error de sincronización */}
-      {syncError && (
+      {syncError && !showSyncModal && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-2">
