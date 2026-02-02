@@ -162,14 +162,46 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
           </div>
         </div>
         
-        {/* Botón de sincronización desde GitHub */}
-        {application.githubRepoName && (
-          <button
-            onClick={handleSyncApplication}
-            disabled={isSyncing}
-            className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-wait rounded-lg transition-colors whitespace-nowrap flex-shrink-0"
-            title="Sincronizar desde GitHub"
-          >
+        {/* Botones de acción */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Botón de desplegar release */}
+          {application.latestReleaseVersion && (
+            <a
+              href={`/deployments?appIds=${application.id}&appVersions=release&appModes=Add`}
+              className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors whitespace-nowrap"
+              title="Desplegar esta versión"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <span className="hidden sm:inline">Desplegar release {application.latestReleaseVersion}</span>
+              <span className="sm:hidden">Release</span>
+            </a>
+          )}
+          
+          {/* Botón de desplegar prerelease */}
+          {application.latestPrereleaseVersion && (
+            <a
+              href={`/deployments?appIds=${application.id}&appVersions=prerelease&appModes=Add`}
+              className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors whitespace-nowrap"
+              title="Desplegar esta versión"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <span className="hidden sm:inline">Desplegar prerelease {application.latestPrereleaseVersion}</span>
+              <span className="sm:hidden">Prerelease</span>
+            </a>
+          )}
+          
+          {/* Botón de sincronización desde GitHub */}
+          {application.githubRepoName && (
+            <button
+              onClick={handleSyncApplication}
+              disabled={isSyncing}
+              className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-medium text-white bg-gray-600 hover:bg-gray-700 disabled:bg-gray-800 disabled:cursor-wait rounded-lg transition-colors whitespace-nowrap"
+              title="Sincronizar desde GitHub"
+            >
             {isSyncing ? (
               <>
                 <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -186,8 +218,9 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
                 <span className="hidden sm:inline">Sincronizar</span>
               </>
             )}
-          </button>
-        )}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Modal de progreso de sincronización */}

@@ -59,7 +59,9 @@ export function DeploymentsPage() {
     if (!loadingEnvs && !loadingApps && environments.length > 0 && applications.length > 0 && !isInitialized) {
       const tenantId = searchParams.get('tenantId');
       const environmentName = searchParams.get('environmentName');
-      const appsParam = searchParams.get('apps');
+      const appIdsParam = searchParams.get('appIds');
+      const appVersionsParam = searchParams.get('appVersions');
+      const appModesParam = searchParams.get('appModes');
 
       // Restore selected environment
       if (tenantId && environmentName) {
@@ -72,13 +74,18 @@ export function DeploymentsPage() {
       }
 
       // Restore selected applications
-      if (appsParam) {
+      if (appIdsParam && appVersionsParam) {
         try {
-          const appsData: Array<{ id: string; versionType: VersionType; installMode?: 'Add' | 'ForceSync' }> = JSON.parse(appsParam);
-          const appsToAdd = appsData
-            .map(({ id, versionType, installMode }) => {
+          const appIds = appIdsParam.split(',');
+          const versionTypes = appVersionsParam.split(',');
+          const installModes = appModesParam ? appModesParam.split(',') : [];
+          
+          const appsToAdd = appIds
+            .map((id, index) => {
               const app = applications.find(a => a.id === id);
-              return app ? { app, versionType, installMode: installMode || 'Add' } : null;
+              const versionType = (versionTypes[index] || 'release') as VersionType;
+              const installMode = (installModes[index] || 'Add') as 'Add' | 'ForceSync';
+              return app ? { app, versionType, installMode } : null;
             })
             .filter(Boolean) as Array<{ app: Application; versionType: VersionType; installMode: 'Add' | 'ForceSync' }>;
           
@@ -86,7 +93,7 @@ export function DeploymentsPage() {
             addApplications(appsToAdd);
           }
         } catch (e) {
-          console.error('Error parsing apps from URL:', e);
+          console.error('Error parsing app parameters from URL:', e);
         }
       }
 

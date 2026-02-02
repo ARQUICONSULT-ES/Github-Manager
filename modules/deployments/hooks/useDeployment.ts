@@ -103,13 +103,14 @@ export function useDeployment() {
     }
     
     if (applications.length > 0) {
-      // Store apps as JSON: [{id, versionType, installMode}]
-      const appsData = applications.map(app => ({
-        id: app.id,
-        versionType: app.versionType,
-        installMode: app.installMode || 'Add'
-      }));
-      params.set('apps', JSON.stringify(appsData));
+      // Store apps as comma-separated values for cleaner URLs
+      const appIds = applications.map(app => app.id).join(',');
+      const versionTypes = applications.map(app => app.versionType).join(',');
+      const installModes = applications.map(app => app.installMode || 'Add').join(',');
+      
+      params.set('appIds', appIds);
+      params.set('appVersions', versionTypes);
+      params.set('appModes', installModes);
     }
     
     const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
