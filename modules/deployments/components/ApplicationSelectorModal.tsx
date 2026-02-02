@@ -39,7 +39,20 @@ export function ApplicationSelectorModal({
   const [loadingPRs, setLoadingPRs] = useState(false);
   const [prError, setPrError] = useState<string | null>(null);
 
-  if (!isOpen) return null;
+  // Resetear estado cuando el modal se cierra
+  if (!isOpen) {
+    // Ejecutar cleanup cuando el modal no está visible
+    if (selectedApps.size > 0 || searchQuery || prModalOpen) {
+      setTimeout(() => {
+        setSelectedApps(new Map());
+        setSearchQuery("");
+        setPrModalOpen(false);
+        setCurrentAppForPR(null);
+        setPullRequests([]);
+      }, 0);
+    }
+    return null;
+  }
 
   const filteredApplications = applications.filter(app => {
     const matchesSearch = app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -80,16 +93,31 @@ export function ApplicationSelectorModal({
     setPrError(null);
 
     try {
-      // Extraer owner y repo del githubRepoName (formato: "owner/repo")
-      console.log(`[Modal] githubRepoName: "${app.githubRepoName}"`);
-      const parts = app.githubRepoName.split('/');
-      const owner = parts[0]?.trim();
-      const repo = parts[1]?.trim();
+      // Extraer owner y repo - primero intentar desde githubUrl, luego desde githubRepoName
+      let owner = '';
+      let repo = app.githubRepoName;
+
+      if (app.githubUrl) {
+        // Extraer owner y repo de URL como: https://github.com/owner/repo
+        const match = app.githubUrl.match(/github\.com\/([^\/]+)\/([^\/\?#]+)/);
+        if (match) {
+          owner = match[1];
+          repo = match[2].replace(/\.git$/, ''); // Remover .git si existe
+        }
+      }
+
+      // Si githubRepoName ya incluye el owner (formato owner/repo), usarlo
+      if (!owner && app.githubRepoName.includes('/')) {
+        const parts = app.githubRepoName.split('/');
+        owner = parts[0]?.trim() || '';
+        repo = parts[1]?.trim() || repo;
+      }
       
+      console.log(`[Modal] githubUrl: "${app.githubUrl}", githubRepoName: "${app.githubRepoName}"`);
       console.log(`[Modal] Owner: "${owner}", Repo: "${repo}"`);
       
       if (!owner || !repo) {
-        throw new Error(`Formato inválido de repositorio: "${app.githubRepoName}"`);
+        throw new Error(`No se pudo determinar el owner del repositorio: "${app.githubRepoName}". Verifica que la aplicación tenga una URL de GitHub válida.`);
       }
       
       const url = `/api/github/pull-requests?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`;
@@ -475,60 +503,139 @@ export function ApplicationSelectorModal({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {pullRequests.map((pr) => (
-                    <button
-                      key={pr.id}
-                      onClick={() => handleSelectPR(pr.number)}
-                      className="w-full p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-orange-500 dark:hover:border-orange-600 hover:bg-orange-50/50 dark:hover:bg-orange-900/20 transition-colors text-left"
-                    >
-                      <div className="flex items-start gap-3">
-                        {/* PR Icon */}
-                        <div className="flex-shrink-0 mt-1">
-                          <svg className="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                          </svg>
-                        </div>
+                  {pullRequests.map((pr) => {
+                    // Calcular tiempo relativo
+                    const now = new Date();
+                    const created = new Date(pr.created_at);
+                    const diffMs = now.getTime() - created.getTime();
+                    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                    
+                    let timeAgo = '';
+                    if (diffDays > 0) {
+                      timeAgo = `${diffDays} ${diffDays === 1 ? 'día' : 'días'}`;
+                    } else if (diffHours > 0) {
+                      timeAgo = `${diffHours} ${diffHours === 1 ? 'hora' : 'horas'}`;
+                    } else {
+                      timeAgo = 'hace un momento';
+                    }
 
-                        {/* PR Info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-semibold text-gray-900 dark:text-white">
-                              #{pr.number}
-                            </span>
-                            <span className="text-sm text-gray-900 dark:text-white">
-                              {pr.title}
-                            </span>
-                            {pr.draft && (
-                              <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">
-                                Draft
+                    // Determinar si el PR es seleccionable (solo si los checks pasaron)
+                    const isDisabled = pr.checks?.conclusion === 'failure' || pr.checks?.conclusion === 'pending';
+
+                    return (
+                      <button
+                        key={pr.id}
+                        onClick={() => !isDisabled && handleSelectPR(pr.number)}
+                        disabled={isDisabled}
+                        className={`w-full p-3 rounded-lg border text-left transition-colors ${
+                          isDisabled
+                            ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 opacity-60 cursor-not-allowed'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-green-500 dark:hover:border-green-600 hover:bg-green-50/50 dark:hover:bg-green-900/20'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2.5">
+                          {/* PR Icon */}
+                          <div className="flex-shrink-0 mt-0.5">
+                            <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 16 16">
+                              <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z"/>
+                            </svg>
+                          </div>
+
+                          {/* PR Info */}
+                          <div className="flex-1 min-w-0">
+                            {/* Title con check status */}
+                            <div className="flex items-start gap-2 mb-1">
+                              <h4 className="text-sm font-medium text-gray-900 dark:text-white flex-1 flex items-center gap-1.5">
+                                <span>{pr.title}</span>
+                                <a
+                                  href={pr.html_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors flex-shrink-0"
+                                  title="Abrir PR en GitHub"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                  </svg>
+                                </a>
+                              </h4>
+                              {/* Check status icon */}
+                              {pr.checks?.conclusion === 'success' && (
+                                <span className="flex-shrink-0 text-green-600 dark:text-green-400" title="All checks passed">
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/>
+                                  </svg>
+                                </span>
+                              )}
+                              {pr.checks?.conclusion === 'pending' && (
+                                <span className="flex-shrink-0 flex items-center justify-center w-4 h-4" title="Checks in progress">
+                                  <span 
+                                    className="w-2 h-2 rounded-full animate-pulse" 
+                                    style={{ backgroundColor: '#d29922' }}
+                                  />
+                                </span>
+                              )}
+                              {pr.checks?.conclusion === 'failure' && (
+                                <span className="flex-shrink-0 text-red-600 dark:text-red-400" title="Some checks failed">
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/>
+                                  </svg>
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Metadata line */}
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-600 dark:text-gray-400">
+                              <span className="font-medium text-gray-700 dark:text-gray-300">
+                                #{pr.number}
                               </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
-                            <span className="flex items-center gap-1">
-                              <img
-                                src={pr.user.avatar_url}
-                                alt={pr.user.login}
-                                className="w-4 h-4 rounded-full"
-                              />
-                              {pr.user.login}
-                            </span>
-                            <span>{pr.head.ref} → {pr.base.ref}</span>
-                            <span>
-                              {new Date(pr.updated_at).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
+                              <span>
+                                abierto hace {timeAgo}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                por
+                                <img
+                                  src={pr.user.avatar_url}
+                                  alt={pr.user.login}
+                                  className="w-3.5 h-3.5 rounded-full inline-block"
+                                  title={pr.user.login}
+                                />
+                                <span className="font-medium">{pr.user.login}</span>
+                              </span>
+                              {pr.draft && (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-gray-500 dark:text-gray-500 font-medium">
+                                    Draft
+                                  </span>
+                                </>
+                              )}
+                            </div>
 
-                        {/* Arrow Icon */}
-                        <div className="flex-shrink-0">
-                          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
+                            {/* Branch info */}
+                            <div className="mt-1.5 text-xs text-gray-500 dark:text-gray-500">
+                              <span className="font-mono bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-1 py-0.5 rounded text-[11px]">
+                                {pr.head.ref}
+                              </span>
+                              <span className="mx-1">→</span>
+                              <span className="font-mono bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-1 py-0.5 rounded text-[11px]">
+                                {pr.base.ref}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Arrow Icon */}
+                          <div className="flex-shrink-0">
+                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>

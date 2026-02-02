@@ -534,85 +534,141 @@ async function getPullRequestArtifact(
   try {
     console.log(`Obteniendo artifacts del PR #${prNumber}...`);
 
-    // 1. Obtener los workflows runs del PR
-    const runsUrl = `https://api.github.com/repos/${owner}/${repo}/actions/runs?event=pull_request&per_page=100`;
-    const runsRes = await fetch(runsUrl, {
+    // 1. Primero obtener información del PR para conseguir el SHA del head
+    const prUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`;
+    const prRes = await fetch(prUrl, {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/vnd.github.v3+json",
       },
     });
 
-    if (!runsRes.ok) {
-      console.error(`Error obteniendo workflow runs: ${runsRes.status}`);
+    if (!prRes.ok) {
+      console.error(`Error obteniendo información del PR: ${prRes.status}`);
       return null;
     }
 
-    const runsData = await runsRes.json();
+    const prData = await prRes.json();
+    const headSha = prData.head.sha;
+    console.log(`PR #${prNumber} - HEAD SHA: ${headSha}`);
+
+    // 2. Obtener los check runs para ese commit
+    const checksUrl = `https://api.github.com/repos/${owner}/${repo}/commits/${headSha}/check-runs`;
+    const checksRes = await fetch(checksUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+      },
+    });
+
+    if (!checksRes.ok) {
+      console.error(`Error obteniendo check runs: ${checksRes.status}`);
+      return null;
+    }
+
+    const checksData = await checksRes.json();
+    const checkRuns = checksData.check_runs || [];
     
-    // Filtrar runs que correspondan al PR
-    const prRuns = runsData.workflow_runs.filter((run: any) => {
-      return run.pull_requests?.some((pr: any) => pr.number === prNumber);
+    if (checkRuns.length === 0) {
+      console.error(`No se encontraron check runs para el commit ${headSha}`);
+      return null;
+    }
+
+    console.log(`Check runs encontrados: ${checkRuns.length}`);
+    checkRuns.forEach((run: any) => {
+      console.log(`  - ${run.name}: ${run.status} / ${run.conclusion}`);
     });
 
-    if (prRuns.length === 0) {
-      console.error(`No se encontraron workflow runs para PR #${prNumber}`);
-      return null;
-    }
-
-    // Ordenar por fecha y obtener el más reciente exitoso
-    const successfulRun = prRuns
-      .filter((run: any) => run.status === 'completed' && run.conclusion === 'success')
-      .sort((a: any, b: any) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0];
-
-    if (!successfulRun) {
-      console.error(`No se encontró un workflow run exitoso para PR #${prNumber}`);
-      return null;
-    }
-
-    console.log(`Workflow run encontrado: ${successfulRun.id} (${successfulRun.name})`);
-
-    // 2. Obtener los artifacts de ese run
-    const artifactsUrl = `https://api.github.com/repos/${owner}/${repo}/actions/runs/${successfulRun.id}/artifacts`;
-    const artifactsRes = await fetch(artifactsUrl, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github.v3+json",
-      },
-    });
-
-    if (!artifactsRes.ok) {
-      console.error(`Error obteniendo artifacts: ${artifactsRes.status}`);
-      return null;
-    }
-
-    const artifactsData = await artifactsRes.json();
-
-    if (artifactsData.artifacts.length === 0) {
-      console.error(`No se encontraron artifacts en el workflow run ${successfulRun.id}`);
-      return null;
-    }
-
-    // Buscar el artifact .app o .zip
-    const artifact = artifactsData.artifacts.find((a: any) => 
-      a.name.toLowerCase().includes('app') || 
-      a.name.toLowerCase().endsWith('.app') ||
-      a.name.toLowerCase().endsWith('.zip')
+    // 3. Buscar un check run completado exitosamente que tenga artifacts
+    // Obtener el run_id desde los check_runs y buscar artifacts
+    const successfulChecks = checkRuns.filter((run: any) => 
+      run.status === 'completed' && run.conclusion === 'success'
     );
 
-    if (!artifact) {
-      console.error(`No se encontró artifact .app en el workflow run`);
-      console.error(`Artifacts disponibles: ${artifactsData.artifacts.map((a: any) => a.name).join(', ')}`);
+    if (successfulChecks.length === 0) {
+      console.error(`No se encontraron check runs exitosos para PR #${prNumber}`);
       return null;
     }
 
-    console.log(`Artifact encontrado: ${artifact.name}`);
-    
-    return {
-      downloadUrl: artifact.archive_download_url,
-      version: `PR${prNumber}`,
-      assetId: artifact.id,
-    };
+    // 4. Para cada check exitoso, intentar obtener el workflow run asociado
+    for (const check of successfulChecks) {
+      // Los check runs tienen un check_suite_id, pero necesitamos el workflow run
+      // Mejor: obtener todos los workflow runs y buscar por head_sha
+      const runsUrl = `https://api.github.com/repos/${owner}/${repo}/actions/runs?head_sha=${headSha}&per_page=100`;
+      const runsRes = await fetch(runsUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      });
+
+      if (!runsRes.ok) {
+        console.error(`Error obteniendo workflow runs: ${runsRes.status}`);
+        continue;
+      }
+
+      const runsData = await runsRes.json();
+      const workflowRuns = runsData.workflow_runs || [];
+
+      console.log(`Workflow runs encontrados para SHA ${headSha}: ${workflowRuns.length}`);
+
+      // Buscar runs exitosos
+      const successfulRuns = workflowRuns
+        .filter((run: any) => run.status === 'completed' && run.conclusion === 'success')
+        .sort((a: any, b: any) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+
+      // 5. Buscar artifacts en cada run exitoso
+      for (const run of successfulRuns) {
+        console.log(`Buscando artifacts en workflow run ${run.id} (${run.name})...`);
+        
+        const artifactsUrl = `https://api.github.com/repos/${owner}/${repo}/actions/runs/${run.id}/artifacts`;
+        const artifactsRes = await fetch(artifactsUrl, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/vnd.github.v3+json",
+          },
+        });
+
+        if (!artifactsRes.ok) {
+          console.error(`Error obteniendo artifacts del run ${run.id}: ${artifactsRes.status}`);
+          continue;
+        }
+
+        const artifactsData = await artifactsRes.json();
+
+        if (artifactsData.artifacts.length === 0) {
+          console.log(`  No hay artifacts en este run`);
+          continue;
+        }
+
+        console.log(`  Artifacts encontrados: ${artifactsData.artifacts.map((a: any) => a.name).join(', ')}`);
+
+        // Buscar el artifact que termine con -Apps (más genérico)
+        // Soporta patterns como: main-Apps, Modification-Apps, etc.
+        const artifact = artifactsData.artifacts.find((a: any) => 
+          a.name.includes('-Apps') && !a.name.includes('TestApps') && !a.name.includes('BuildOutput')
+        );
+
+        if (artifact) {
+          console.log(`✓ Artifact encontrado: ${artifact.name}`);
+          console.log(`  Artifact ID: ${artifact.id}, Tamaño: ${(artifact.size_in_bytes / 1024 / 1024).toFixed(2)} MB`);
+          console.log(`  Creado: ${artifact.created_at}, Expira: ${artifact.expires_at || 'N/A'}`);
+          console.log(`  URL: https://github.com/${owner}/${repo}/actions/runs/${run.id}/artifacts/${artifact.id}`);
+          
+          return {
+            downloadUrl: artifact.archive_download_url,
+            version: `PR${prNumber}`,
+            assetId: artifact.id,
+          };
+        }
+      }
+
+      // Si llegamos aquí, no encontramos artifacts con -Apps
+      break; // Ya obtuvimos los runs, no necesitamos iterar más checks
+    }
+
+    console.error(`No se encontró artifact con "-Apps" para PR #${prNumber}`);
+    return null;
   } catch (error) {
     console.error('Error obteniendo artifact del PR:', error);
     return null;
@@ -734,19 +790,23 @@ async function downloadAndExtractApp(
 ): Promise<Buffer | null> {
   try {
     // Descargar el archivo usando la API de GitHub
-    // Si downloadUrl es una URL de API (contiene /repos/), usar Accept: application/octet-stream
-    // Si es una URL directa de GitHub, usarla tal cual
+    // Para artifacts: archive_download_url retorna directamente un ZIP
+    // Para releases: asset.url con Accept: application/octet-stream
     const headers: HeadersInit = {
       Authorization: `Bearer ${githubToken}`,
     };
 
-    // Si es URL de la API de GitHub (asset.url), necesitamos Accept: application/octet-stream
-    if (downloadUrl.includes('api.github.com')) {
+    // Si es URL de la API de GitHub releases (contiene /releases/assets/), usar Accept: application/octet-stream
+    // Si es URL de artifacts (contiene /actions/artifacts/), NO usar Accept porque ya retorna ZIP
+    if (downloadUrl.includes('/releases/assets/')) {
       headers.Accept = 'application/octet-stream';
     }
 
     console.log(`Descargando desde: ${downloadUrl}`);
-    const response = await fetch(downloadUrl, { headers });
+    const response = await fetch(downloadUrl, { 
+      headers,
+      redirect: 'follow' // Seguir redirects para artifacts
+    });
 
     if (!response.ok) {
       console.error(`Error descargando asset: ${response.status} ${response.statusText}`);

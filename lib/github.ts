@@ -98,7 +98,92 @@ export async function getPullRequests(
 
     const prs = await res.json();
     console.log(`[getPullRequests] Found ${prs.length} open PRs`);
-    return prs;
+    
+    // Obtener el estado de los checks para cada PR usando Checks API
+    const prsWithChecks = await Promise.all(
+      prs.map(async (pr: any) => {
+        try {
+          // Usar Checks API (más moderno, incluye GitHub Actions)
+          const checksUrl = `${GITHUB_API_URL}/repos/${owner}/${repo}/commits/${pr.head.sha}/check-runs`;
+          console.log(`[getPullRequests] Fetching checks for PR #${pr.number}: ${checksUrl}`);
+          
+          const checksRes = await fetch(checksUrl, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/vnd.github+json",
+            },
+            cache: "no-store",
+          });
+
+          if (checksRes.ok) {
+            const checksData = await checksRes.json();
+            const checkRuns = checksData.check_runs || [];
+            
+            console.log(`[getPullRequests] PR #${pr.number} has ${checkRuns.length} check runs`);
+            
+            // Determinar el estado general
+            let overallConclusion: 'success' | 'failure' | 'pending' | null = null;
+            let overallStatus: 'queued' | 'in_progress' | 'completed' | null = null;
+            
+            if (checkRuns.length > 0) {
+              // Si algún check está en progreso o en cola
+              const hasInProgress = checkRuns.some((run: any) => 
+                run.status === 'queued' || run.status === 'in_progress'
+              );
+              
+              if (hasInProgress) {
+                overallStatus = 'in_progress';
+                overallConclusion = 'pending';
+              } else {
+                // Todos están completados
+                overallStatus = 'completed';
+                
+                // Si alguno falló, el resultado general es failure
+                const hasFailed = checkRuns.some((run: any) => 
+                  run.conclusion === 'failure' || 
+                  run.conclusion === 'timed_out' || 
+                  run.conclusion === 'cancelled'
+                );
+                
+                if (hasFailed) {
+                  overallConclusion = 'failure';
+                } else {
+                  // Si todos pasaron o fueron neutral/skipped
+                  const allSuccess = checkRuns.every((run: any) => 
+                    run.conclusion === 'success' || 
+                    run.conclusion === 'neutral' || 
+                    run.conclusion === 'skipped'
+                  );
+                  
+                  overallConclusion = allSuccess ? 'success' : null;
+                }
+              }
+            }
+            
+            return {
+              ...pr,
+              checks: {
+                conclusion: overallConclusion,
+                status: overallStatus,
+                total_count: checkRuns.length,
+                check_runs: checkRuns.map((run: any) => ({
+                  name: run.name,
+                  status: run.status,
+                  conclusion: run.conclusion,
+                })),
+              },
+            };
+          } else {
+            console.log(`[getPullRequests] Failed to fetch checks for PR #${pr.number}: ${checksRes.status}`);
+          }
+        } catch (error) {
+          console.error(`Error fetching checks for PR #${pr.number}:`, error);
+        }
+        return pr;
+      })
+    );
+    
+    return prsWithChecks;
   } catch (error) {
     console.error("Error fetching pull requests:", error);
     throw error;

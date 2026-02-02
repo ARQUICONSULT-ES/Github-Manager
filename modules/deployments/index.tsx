@@ -273,6 +273,8 @@ export function DeploymentsPage() {
           githubRepoName: app.githubRepoName,
           extracted: { repoOwner, repoName },
           finalRepoName,
+          versionType: app.versionType,
+          prNumber: app.prNumber,
         });
 
         // Seleccionar la versión según el versionType
@@ -287,6 +289,7 @@ export function DeploymentsPage() {
           version: version,
           githubRepoName: finalRepoName,
           versionType: app.versionType,
+          prNumber: app.prNumber, // Número del PR para descargar artifacts
           installMode: app.installMode || 'Add', // Default a 'Add' si no existe
         };
       });
