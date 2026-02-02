@@ -6,6 +6,7 @@ import type { Application } from "@/modules/applications/types";
 import { useApplicationInstallations } from "@/modules/applications/hooks/useApplicationInstallations";
 import { useSyncSingleApp } from "@/modules/applications/hooks/useSyncSingleApp";
 import { InstallationsByCustomer } from "@/modules/applications/components/InstallationsByCustomer";
+import { SyncProgressModal } from "@/modules/applications/components/SyncProgressModal";
 import { countOutdatedInstallations, isVersionOutdated } from "@/modules/applications/utils/versionComparison";
 
 interface ApplicationDetailPageProps {
@@ -18,6 +19,7 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showOnlyOutdated, setShowOnlyOutdated] = useState(false);
+  const [showSyncModal, setShowSyncModal] = useState(false);
 
   const {
     installations,
@@ -31,6 +33,9 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
     isSyncing,
     error: syncError,
     success: syncSuccess,
+    logs,
+    stats,
+    resetSync,
   } = useSyncSingleApp(applicationId, (updatedApp) => {
     setApplication(updatedApp);
   });
@@ -72,6 +77,18 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
 
   const handleBack = () => {
     router.back();
+  };
+
+  const handleSyncApplication = async () => {
+    resetSync();
+    setShowSyncModal(true);
+    await syncApplication();
+  };
+
+  const handleCloseSyncModal = () => {
+    if (!isSyncing) {
+      setShowSyncModal(false);
+    }
   };
 
   if (loading) {
@@ -148,7 +165,7 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
         {/* Botón de sincronización desde GitHub */}
         {application.githubRepoName && (
           <button
-            onClick={syncApplication}
+            onClick={handleSyncApplication}
             disabled={isSyncing}
             className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-wait rounded-lg transition-colors whitespace-nowrap flex-shrink-0"
             title="Sincronizar desde GitHub"
@@ -173,8 +190,17 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
         )}
       </div>
 
+      {/* Modal de progreso de sincronización */}
+      <SyncProgressModal
+        isOpen={showSyncModal}
+        isSyncing={isSyncing}
+        logs={logs}
+        stats={stats}
+        onClose={handleCloseSyncModal}
+      />
+
       {/* Mensaje de éxito de sincronización */}
-      {syncSuccess && (
+      {syncSuccess && !showSyncModal && (
         <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 sm:p-4">
           <div className="flex items-start gap-2">
             <svg className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -193,7 +219,7 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
       )}
 
       {/* Mensaje de error de sincronización */}
-      {syncError && (
+      {syncError && !showSyncModal && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 sm:p-4">
           <div className="flex items-start gap-2">
             <svg className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
