@@ -5,7 +5,7 @@ import type { RepoListProps } from "@/modules/repos/types";
 import { useRepoExtraInfo } from "@/modules/repos/hooks/useRepoExtraInfo";
 
 export function RepoList({ repos, allRepos }: RepoListProps) {
-  const { extraInfo, isLoading } = useRepoExtraInfo(repos);
+  const { extraInfo, isLoading, isLoadingIncremental } = useRepoExtraInfo(repos);
 
   if (repos.length === 0) {
     return (
@@ -36,16 +36,21 @@ export function RepoList({ repos, allRepos }: RepoListProps) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {repos.map((repo) => (
-          <RepoCard
-            key={repo.id}
-            repo={repo}
-            preloadedInfo={extraInfo[repo.full_name]}
-            skipIndividualFetch={true}
-            isLoadingRelease={isLoading}
-            allRepos={allRepos}
-          />
-        ))}
+        {repos.map((repo) => {
+          const hasInfo = !!extraInfo[repo.full_name];
+          const showLoading = !hasInfo && (isLoading || isLoadingIncremental);
+          
+          return (
+            <RepoCard
+              key={repo.id}
+              repo={repo}
+              preloadedInfo={extraInfo[repo.full_name]}
+              skipIndividualFetch={true}
+              isLoadingRelease={showLoading}
+              allRepos={allRepos}
+            />
+          );
+        })}
       </div>
     </div>
   );
