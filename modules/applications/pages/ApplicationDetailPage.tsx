@@ -183,7 +183,7 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
           {application.latestPrereleaseVersion && (
             <a
               href={`/deployments?appIds=${application.id}&appVersions=prerelease&appModes=Add`}
-              className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors whitespace-nowrap"
+              className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors whitespace-nowrap"
               title="Desplegar esta versión"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -311,16 +311,18 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
                   </svg>
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-0.5">Última versión (Release)</p>
-                    <p className="text-xs sm:text-sm text-gray-900 dark:text-white font-medium font-mono">{application.latestReleaseVersion}</p>
-                    {application.latestReleaseDate && (
-                      <p className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                        {new Date(application.latestReleaseDate).toLocaleDateString('es-ES', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
-                      </p>
-                    )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="inline-flex items-center gap-1 text-xs sm:text-sm font-medium font-mono bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-md">{application.latestReleaseVersion}</p>
+                      {application.latestReleaseDate && (
+                        <span className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500">
+                          {new Date(application.latestReleaseDate).toLocaleDateString('es-ES', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -333,16 +335,18 @@ export function ApplicationDetailPage({ applicationId }: ApplicationDetailPagePr
                   </svg>
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-0.5">Última versión (Prerelease)</p>
-                    <p className="text-xs sm:text-sm text-gray-900 dark:text-white font-medium font-mono">{application.latestPrereleaseVersion}</p>
-                    {application.latestPrereleaseDate && (
-                      <p className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                        {new Date(application.latestPrereleaseDate).toLocaleDateString('es-ES', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
-                      </p>
-                    )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="inline-flex items-center gap-1 text-xs sm:text-sm font-medium font-mono bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-1 rounded-md">{application.latestPrereleaseVersion}</p>
+                      {application.latestPrereleaseDate && (
+                        <span className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500">
+                          {new Date(application.latestPrereleaseDate).toLocaleDateString('es-ES', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
