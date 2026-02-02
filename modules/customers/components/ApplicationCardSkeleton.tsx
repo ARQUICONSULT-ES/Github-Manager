@@ -40,9 +40,41 @@ export function ApplicationCardSkeleton() {
 
 export function ApplicationListSkeleton({ count = 12 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-      {Array.from({ length: count }).map((_, i) => (
-        <ApplicationCardSkeleton key={i} />
+    <div className="space-y-6">
+      {Array.from({ length: 3 }).map((_, customerIdx) => (
+        <div key={customerIdx} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+          {/* Header del cliente skeleton */}
+          <div className="flex items-center w-full px-4 py-3 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="flex-shrink-0 w-8 h-8 rounded-md bg-gray-200 dark:bg-gray-700 animate-pulse" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3.5 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse" />
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24 animate-pulse" />
+              </div>
+            </div>
+          </div>
+          
+          {/* Contenido de aplicaciones skeleton */}
+          <div className="p-4 space-y-4">
+            {Array.from({ length: 2 }).map((_, envIdx) => (
+              <div key={envIdx}>
+                {/* Header del entorno skeleton */}
+                <div className="mb-2 flex items-center gap-2">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 animate-pulse" />
+                  <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded-md w-20 animate-pulse" />
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16 animate-pulse" />
+                </div>
+                
+                {/* Grid de aplicaciones (3 columnas) */}
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {Array.from({ length: 3 }).map((_, appIdx) => (
+                    <ApplicationCardSkeleton key={appIdx} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       ))}
     </div>
   );

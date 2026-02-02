@@ -108,6 +108,33 @@ export function InstalledAppsPage() {
     );
   }
 
+  // Mostrar skeleton durante la carga inicial
+  if (loading && installedApps.length === 0) {
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              Instalaciones
+            </h1>
+            <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
+          </div>
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse" />
+        </div>
+
+        {/* Barra de búsqueda skeleton */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
+          <div className="w-40 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
+        </div>
+
+        {/* Contenido skeleton */}
+        <ApplicationListSkeleton count={12} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -193,10 +220,8 @@ export function InstalledAppsPage() {
       />
 
       {/* Contenido */}
-      {loading ? (
-        <ApplicationListSkeleton count={12} />
-      ) : filteredApps.length > 0 ? (
-        <ApplicationsList applications={filteredApps} isLoading={loading} latestVersions={latestVersions} />
+      {filteredApps.length > 0 ? (
+        <ApplicationsList applications={filteredApps} isLoading={false} latestVersions={latestVersions} />
       ) : (
         <div className="text-center py-12 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg">
           <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
