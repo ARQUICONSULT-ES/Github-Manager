@@ -93,26 +93,34 @@ export async function GET(request: NextRequest) {
       const batch = environments.slice(i, i + BATCH_SIZE);
       
       const batchPromises = batch.map(async (env) => {
-        // Sin límite por entorno - cargar todas las apps
-        const apps = await prisma.installedApp.findMany({
-          where: {
-            tenantId: env.tenantId,
-            environmentName: env.name,
-          },
-          orderBy: [
-            { name: "asc" },
-          ],
-          select: {
-            tenantId: true,
-            environmentName: true,
-            id: true,
-            name: true,
-            version: true,
-            publisher: true,
-            publishedAs: true,
-            state: true,
-          },
-        });
+        // Sin límite por entorno - cargar todas las apps con LEFT JOIN a Application
+        const apps = await prisma.$queryRaw<Array<{
+          tenantId: string;
+          environmentName: string;
+          id: string;
+          name: string;
+          version: string;
+          publisher: string;
+          publishedAs: string;
+          state: string | null;
+          latestReleaseVersion: string | null;
+        }>>`
+          SELECT 
+            ia."tenantId",
+            ia."environmentName",
+            ia.id,
+            ia.name,
+            ia.version,
+            ia.publisher,
+            ia."publishedAs",
+            ia.state,
+            a.latest_release_version as "latestReleaseVersion"
+          FROM installed_apps ia
+          LEFT JOIN applications a ON ia.id = a.id
+          WHERE ia."tenantId" = ${env.tenantId}::uuid
+            AND ia."environmentName" = ${env.name}
+          ORDER BY ia.name ASC
+        `;
 
         // Transformar las apps agregando información del entorno (sin imagen base64)
         return apps.map((app) => ({
@@ -124,6 +132,7 @@ export async function GET(request: NextRequest) {
           publisher: app.publisher,
           publishedAs: app.publishedAs,
           state: app.state,
+          latestReleaseVersion: app.latestReleaseVersion,
           customerId: env.tenant.customer.id,
           customerName: env.tenant.customer.customerName,
           environmentType: env.type,

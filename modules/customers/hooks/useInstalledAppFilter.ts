@@ -56,7 +56,7 @@ export const installedAppFilterConfig: FilterConfig<InstalledAppWithEnvironment>
 
 export function useInstalledAppFilter(
   installedApps: InstalledAppWithEnvironment[],
-  latestVersions: Record<string, string> = {}
+  latestVersions: Record<string, string> = {} // Deprecated: kept for backward compatibility, now using app.latestReleaseVersion
 ) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -168,7 +168,8 @@ export function useInstalledAppFilter(
     // Filtrar solo las aplicaciones desactualizadas si está activado
     if (advancedFilters.showOnlyOutdated) {
       result = result.filter(app => {
-        const latestVersion = latestVersions[app.id];
+        // Use app.latestReleaseVersion directly from the API response
+        const latestVersion = app.latestReleaseVersion || latestVersions[app.id];
         return latestVersion && isVersionOutdated(app.version, latestVersion);
       });
     }

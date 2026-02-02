@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Customer, Tenant } from "@/modules/customers/types";
-import type { Application } from "@/modules/applications/types";
 import ConfirmationModal from "@/modules/customers/components/ConfirmationModal";
 import TenantFormModal from "@/modules/customers/components/TenantFormModal";
 import { useCustomerTenants } from "@/modules/customers/hooks/useCustomerTenants";
@@ -81,34 +80,6 @@ export function CustomerFormPage({ customerId }: CustomerFormPageProps) {
 
   // Estado para filtro de aplicaciones desactualizadas
   const [showOnlyOutdated, setShowOnlyOutdated] = useState(false);
-
-  // Estado para almacenar las versiones más recientes de las aplicaciones
-  const [latestVersions, setLatestVersions] = useState<Record<string, string>>({});
-
-  // Cargar aplicaciones del catálogo para obtener las últimas versiones
-  useEffect(() => {
-    const fetchApplications = async () => {
-      try {
-        const response = await fetch('/api/applications');
-        if (response.ok) {
-          const applications: Application[] = await response.json();
-          const versionsMap: Record<string, string> = {};
-          applications.forEach(app => {
-            if (app.latestReleaseVersion) {
-              versionsMap[app.id] = app.latestReleaseVersion;
-            }
-          });
-          setLatestVersions(versionsMap);
-        }
-      } catch (error) {
-        console.error('Error fetching applications:', error);
-      }
-    };
-
-    if (customerId) {
-      fetchApplications();
-    }
-  }, [customerId]);
 
   // Validación de nombre duplicado con debounce
   useEffect(() => {
@@ -195,7 +166,8 @@ export function CustomerFormPage({ customerId }: CustomerFormPageProps) {
     
     // Filtro de aplicaciones desactualizadas
     if (showOnlyOutdated) {
-      const latestVersion = latestVersions[app.id];
+      // Use latestReleaseVersion from the app object
+      const latestVersion = (app as any).latestReleaseVersion;
       if (!latestVersion || !isVersionOutdated(app.version, latestVersion)) {
         return false;
       }
@@ -954,7 +926,6 @@ export function CustomerFormPage({ customerId }: CustomerFormPageProps) {
               <ApplicationsList 
                 applications={filteredInstalledApps} 
                 lockExpanded={true}
-                latestVersions={latestVersions}
               />
             )}
           </div>

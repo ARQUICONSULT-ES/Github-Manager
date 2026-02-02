@@ -9,7 +9,7 @@ interface ApplicationsListProps {
   applications: InstalledAppWithEnvironment[];
   isLoading?: boolean;
   lockExpanded?: boolean; // Si es true, deshabilita el colapsar/expandir y mantiene todo expandido
-  latestVersions?: Record<string, string>; // Map de appId -> latestVersion para mostrar si está desactualizada
+  latestVersions?: Record<string, string>; // Deprecated: kept for backward compatibility, now using app.latestReleaseVersion
 }
 
 export function ApplicationsList({ 
@@ -223,7 +223,7 @@ export function ApplicationsList({
                           <ApplicationCard 
                             key={`${app.tenantId}-${app.environmentName}-${app.id}`} 
                             application={app}
-                            latestVersion={latestVersions[app.id]}
+                            latestVersion={latestVersions[app.id] || app.latestReleaseVersion || undefined}
                           />
                         ))}
                       </div>
