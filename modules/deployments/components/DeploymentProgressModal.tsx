@@ -8,10 +8,15 @@ export interface DeploymentStep {
   message?: string;
 }
 
+// Estados del despliegue de una aplicación:
+// - pending: Esperando a ser procesada
+// - in-progress: Se está procesando (validando, descargando o instalando - ver steps para detalles)
+// - success: Instalada correctamente
+// - error: Falló algún paso
 export interface DeploymentProgress {
   applicationId: string;
   applicationName: string;
-  status: 'pending' | 'downloading' | 'installing' | 'success' | 'error' | 'aborted';
+  status: 'pending' | 'in-progress' | 'success' | 'error';
   message?: string;
   error?: string;
   steps?: DeploymentStep[];
@@ -35,12 +40,11 @@ export function DeploymentProgressModal({
   const [isComplete, setIsComplete] = useState(false);
   const [hasError, setHasError] = useState(false);
 
-  const currentIndex = progressData.findIndex(p => p.status === 'downloading' || p.status === 'installing');
   const successCount = progressData.filter(p => p.status === 'success').length;
   const errorCount = progressData.filter(p => p.status === 'error').length;
   const abortedCount = progressData.filter(p => p.error?.includes('abortado')).length;
   const pendingCount = progressData.filter(p => p.status === 'pending').length;
-  const processingCount = progressData.filter(p => p.status === 'downloading' || p.status === 'installing').length;
+  const inProgressCount = progressData.filter(p => p.status === 'in-progress').length;
 
   useEffect(() => {
     if (!isOpen) {
@@ -78,8 +82,7 @@ export function DeploymentProgressModal({
             <span className="text-xs text-gray-400 dark:text-gray-500">⏸</span>
           </div>
         );
-      case 'downloading':
-      case 'installing':
+      case 'in-progress':
         return (
           <svg className="animate-spin h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -107,17 +110,25 @@ export function DeploymentProgressModal({
     }
   };
 
-  const getStatusText = (status: DeploymentProgress['status'], error?: string) => {
+  const getStatusText = (status: DeploymentProgress['status'], error?: string, steps?: DeploymentStep[]) => {
     if (error?.includes('abortado')) {
       return '⏸️ Abortado';
     }
-    const envText = environmentName ? ` sobre ${environmentName}` : '';
+    
     switch (status) {
       case 'pending': return '⏳ En espera';
-      case 'downloading': return `📥 Descargando desde GitHub${envText}...`;
-      case 'installing': return `⚙️ Desplegando${envText}...`;
+      case 'in-progress': {
+        // Mostrar el paso actual basado en cuál está en 'running'
+        const currentStep = steps?.find(s => s.status === 'running');
+        if (currentStep) {
+          if (currentStep.name.includes('Validación')) return '🔍 Validando...';
+          if (currentStep.name.includes('Descarga')) return '📥 Descargando...';
+          if (currentStep.name.includes('Instalación')) return '⚙️ Instalando en BC...';
+        }
+        return '⏳ Procesando...';
+      }
       case 'success': return '✅ Instalado correctamente';
-      case 'error': return 'Error en instalación';
+      case 'error': return '❌ Error en instalación';
       default: return '';
     }
   };
@@ -182,9 +193,9 @@ export function DeploymentProgressModal({
             <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
               <div className="flex gap-4">
                 {successCount > 0 && <span className="text-green-600 dark:text-green-400">✅ {successCount} completadas</span>}
-                {processingCount > 0 && <span className="text-blue-600 dark:text-blue-400">⏳ {processingCount} en proceso</span>}
+                {inProgressCount > 0 && <span className="text-blue-600 dark:text-blue-400">⏳ {inProgressCount} en proceso</span>}
                 {pendingCount > 0 && <span className="text-gray-500">⏸️ {pendingCount} pendientes</span>}
-                {errorCount > 0 && <span className="text-red-600 dark:text-red-400">{errorCount} fallidas</span>}
+                {errorCount > 0 && <span className="text-red-600 dark:text-red-400">❌ {errorCount} fallidas</span>}
                 {abortedCount > 0 && <span className="text-orange-600 dark:text-orange-400">⏸️ {abortedCount} abortadas</span>}
               </div>
               <span className="font-medium">{Math.round((successCount / totalApps) * 100)}%</span>
@@ -217,7 +228,7 @@ export function DeploymentProgressModal({
                     ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20'
                     : item.status === 'success'
                     ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20'
-                    : item.status === 'downloading' || item.status === 'installing'
+                    : item.status === 'in-progress'
                     ? 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-300 dark:ring-blue-700'
                     : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
                 }`}
@@ -229,7 +240,7 @@ export function DeploymentProgressModal({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className={`text-sm font-bold ${
-                        item.status === 'downloading' || item.status === 'installing'
+                        item.status === 'in-progress'
                           ? 'text-blue-600 dark:text-blue-400'
                           : 'text-gray-500 dark:text-gray-400'
                       }`}>
@@ -248,7 +259,7 @@ export function DeploymentProgressModal({
                         ? 'text-green-600 dark:text-green-400'
                         : 'text-gray-600 dark:text-gray-400'
                     }`}>
-                      {getStatusText(item.status, item.error)}
+                      {getStatusText(item.status, item.error, item.steps)}
                     </p>
                     {item.message && !item.error && (
                       <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
@@ -267,9 +278,9 @@ export function DeploymentProgressModal({
                     
                     {/* Steps Timeline */}
                     {item.steps && item.steps.length > 0 && (
-                      <div className="mt-3 space-y-2 pl-2 border-l-2 border-gray-200 dark:border-gray-700">
+                      <div className="mt-3 space-y-2 pl-2">
                         {item.steps.map((step, stepIndex) => (
-                          <div key={stepIndex} className="flex items-center gap-2 -ml-[9px]">
+                          <div key={stepIndex} className="flex items-center gap-2">
                             {getStepIcon(step.status)}
                             <div className="flex-1">
                               <span className={`text-xs font-medium ${

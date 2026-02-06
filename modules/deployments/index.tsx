@@ -319,63 +319,216 @@ export function DeploymentsPage() {
       }));
       setProgressData(initialProgress);
 
-      const response = await fetch('/api/deployments/deploy', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          environmentUrl,
-          authContext, // Ya es un string JSON válido
-          environmentName: selectedEnvironment?.name || '',
-          applications: appsWithRepoInfo,
-        }),
-      });
+      // === NUEVO: Loop controlado por el cliente ===
+      // Cada aplicación se despliega en una llamada separada al servidor
+      // Esto evita los límites de runtime de Vercel
+      let hasError = false;
+      
+      for (let i = 0; i < appsWithRepoInfo.length; i++) {
+        const app = appsWithRepoInfo[i];
+        
+        // Si hubo un error previo, marcar las restantes como abortadas
+        if (hasError) {
+          setProgressData(prev => prev.map(p => 
+            p.applicationId === app.id 
+              ? { ...p, status: 'error' as const, error: 'Despliegue abortado por error anterior' }
+              : p
+          ));
+          continue;
+        }
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error al iniciar despliegue');
-      }
+        // Inicializar los 3 pasos: el primero como 'running' ya que estamos empezando
+        const initialSteps = [
+          { name: '1. Validación', status: 'running' as const, message: undefined },
+          { name: '2. Descarga', status: 'pending' as const, message: undefined },
+          { name: '3. Instalación', status: 'pending' as const, message: undefined },
+        ];
 
-      if (!response.body) {
-        throw new Error('No se recibió stream de respuesta');
-      }
-
-      // Leer el stream de eventos
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const text = decoder.decode(value);
-        const lines = text.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              
-              if (data.type === 'progress') {
-                // Actualizar progreso
-                setProgressData(prev => {
-                  const existing = prev.find(p => p.applicationId === data.progress.applicationId);
-                  if (existing) {
-                    return prev.map(p => 
-                      p.applicationId === data.progress.applicationId ? data.progress : p
-                    );
-                  }
-                  return [...prev, data.progress];
-                });
-              } else if (data.type === 'complete' || data.type === 'error') {
-                // Despliegue completado
-                break;
+        // Actualizar estado a "in-progress" con pasos iniciales
+        setProgressData(prev => prev.map(p => 
+          p.applicationId === app.id 
+            ? { 
+                ...p, 
+                status: 'in-progress' as const, 
+                message: undefined, 
+                steps: initialSteps 
               }
-            } catch (e) {
-              console.error('Error parsing SSE data:', e);
+            : p
+        ));
+
+        // Usar SSE para recibir actualizaciones en tiempo real
+        try {
+          const response = await fetch('/api/deployments/deploy-single-sse', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              environmentUrl,
+              authContext,
+              environmentName: selectedEnvironment?.name || '',
+              application: app,
+              applicationIndex: i,
+              totalApplications: appsWithRepoInfo.length,
+            }),
+          });
+
+          if (!response.ok) {
+            // Error HTTP - no es SSE
+            const errorData = await response.json().catch(() => ({ error: 'Error de servidor' }));
+            hasError = true;
+            setProgressData(prev => prev.map(p => 
+              p.applicationId === app.id 
+                ? { 
+                    ...p, 
+                    status: 'error' as const, 
+                    error: errorData.error || 'Error desconocido',
+                    message: undefined,
+                    steps: initialSteps,
+                  }
+                : p
+            ));
+            
+            // Marcar las apps restantes como abortadas
+            setProgressData(prev => prev.map(p => {
+              const appIndex = appsWithRepoInfo.findIndex(a => a.id === p.applicationId);
+              if (appIndex > i) {
+                return { ...p, status: 'error' as const, error: 'Despliegue abortado por error anterior' };
+              }
+              return p;
+            }));
+            continue;
+          }
+
+          // Leer el stream SSE
+          const reader = response.body?.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          let finalResult: { success: boolean; error?: string; version?: string; steps?: typeof initialSteps } | null = null;
+
+          if (reader) {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              
+              // Procesar eventos SSE del buffer
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || ''; // Mantener la última línea incompleta
+
+              let eventType = '';
+              let eventData = '';
+
+              for (const line of lines) {
+                if (line.startsWith('event: ')) {
+                  eventType = line.slice(7);
+                } else if (line.startsWith('data: ')) {
+                  eventData = line.slice(6);
+                  
+                  if (eventType && eventData) {
+                    try {
+                      const data = JSON.parse(eventData);
+                      
+                      if (eventType === 'progress') {
+                        // Actualizar los pasos en tiempo real
+                        setProgressData(prev => prev.map(p => 
+                          p.applicationId === app.id 
+                            ? { ...p, steps: data.steps }
+                            : p
+                        ));
+                      } else if (eventType === 'complete') {
+                        finalResult = data;
+                      } else if (eventType === 'error') {
+                        finalResult = { success: false, error: data.error, steps: data.steps };
+                      }
+                    } catch (e) {
+                      console.error('Error parsing SSE data:', e);
+                    }
+                    
+                    eventType = '';
+                    eventData = '';
+                  }
+                }
+              }
             }
           }
+
+          // Procesar resultado final
+          if (finalResult) {
+            if (!finalResult.success) {
+              hasError = true;
+              setProgressData(prev => prev.map(p => 
+                p.applicationId === app.id 
+                  ? { 
+                      ...p, 
+                      status: 'error' as const, 
+                      error: finalResult!.error || 'Error desconocido',
+                      message: undefined,
+                      steps: finalResult!.steps || initialSteps,
+                    }
+                  : p
+              ));
+              
+              // Marcar las apps restantes como abortadas
+              setProgressData(prev => prev.map(p => {
+                const appIndex = appsWithRepoInfo.findIndex(a => a.id === p.applicationId);
+                if (appIndex > i) {
+                  return { ...p, status: 'error' as const, error: 'Despliegue abortado por error anterior' };
+                }
+                return p;
+              }));
+            } else {
+              // Éxito
+              setProgressData(prev => prev.map(p => 
+                p.applicationId === app.id 
+                  ? { 
+                      ...p, 
+                      status: 'success' as const, 
+                      message: `✓ Instalado: v${finalResult!.version || 'N/A'}`,
+                      error: undefined,
+                      steps: finalResult!.steps || initialSteps.map(s => ({ ...s, status: 'success' as const })),
+                    }
+                  : p
+              ));
+            }
+          } else {
+            // No hubo resultado final - error
+            hasError = true;
+            setProgressData(prev => prev.map(p => 
+              p.applicationId === app.id 
+                ? { 
+                    ...p, 
+                    status: 'error' as const, 
+                    error: 'No se recibió respuesta del servidor',
+                    message: undefined,
+                  }
+                : p
+            ));
+          }
+        } catch (fetchError) {
+          hasError = true;
+          const errorMessage = fetchError instanceof Error ? fetchError.message : 'Error de conexión';
+          setProgressData(prev => prev.map(p => 
+            p.applicationId === app.id 
+              ? { 
+                  ...p, 
+                  status: 'error' as const, 
+                  error: errorMessage,
+                  message: undefined,
+                  steps: initialSteps.map((s, idx) => idx === 0 ? { ...s, status: 'error' as const } : s),
+                }
+              : p
+          ));
+          
+          // Marcar las apps restantes como abortadas
+          setProgressData(prev => prev.map(p => {
+            const appIndex = appsWithRepoInfo.findIndex(a => a.id === p.applicationId);
+            if (appIndex > i) {
+              return { ...p, status: 'error' as const, error: 'Despliegue abortado por error anterior' };
+            }
+            return p;
+          }));
         }
       }
 

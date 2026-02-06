@@ -1301,3 +1301,198 @@ export async function deployApplications(
     results,
   };
 }
+
+interface SingleDeploymentResult {
+  success: boolean;
+  error?: string;
+  version?: string;
+  steps: Array<{
+    name: string;
+    status: 'pending' | 'running' | 'success' | 'error';
+    message?: string;
+  }>;
+}
+
+// Tipo para el callback de progreso
+export type DeploymentProgressCallback = (steps: SingleDeploymentResult['steps']) => void;
+
+/**
+ * Despliega UNA SOLA aplicación en un entorno de Business Central
+ * Esta función está diseñada para ser llamada desde el cliente de forma secuencial
+ * para evitar los límites de runtime de Vercel
+ * 
+ * @param onProgress - Callback opcional que se llama cada vez que cambia el estado de un paso
+ */
+export async function deploySingleApplication(
+  environmentUrl: string,
+  authContext: string,
+  application: {
+    id: string;
+    name: string;
+    publisher: string;
+    version: string;
+    githubRepoName: string;
+    versionType: 'release' | 'prerelease' | 'pullrequest';
+    prNumber?: number;
+    installMode?: 'Add' | 'ForceSync';
+  },
+  githubToken: string,
+  onProgress?: DeploymentProgressCallback
+): Promise<SingleDeploymentResult> {
+  const app = application;
+  
+  // Inicializar los 3 pasos
+  const steps: Array<{
+    name: string;
+    status: 'pending' | 'running' | 'success' | 'error';
+    message?: string;
+  }> = [
+    { name: '1. Validación', status: 'pending', message: undefined },
+    { name: '2. Descarga', status: 'pending', message: undefined },
+    { name: '3. Instalación', status: 'pending', message: undefined },
+  ];
+
+  try {
+    console.log(`\n📦 Desplegando: ${app.name}`);
+    console.log(`   ID: ${app.id}`);
+    console.log(`   Repo: ${app.githubRepoName}`);
+    console.log('─'.repeat(80));
+
+    // === PASO 1: VALIDACIÓN ===
+    console.log(`   1️⃣  Validando configuración...`);
+    steps[0].status = 'running';
+    onProgress?.(steps);
+    
+    const [owner, repo] = app.githubRepoName.split('/');
+    
+    if (!owner || !repo) {
+      const error = `Formato inválido de repositorio GitHub: "${app.githubRepoName}"`;
+      console.error(`   ❌ ${error}`);
+      steps[0].status = 'error';
+      steps[0].message = error;
+      onProgress?.(steps);
+      return { success: false, error: `Paso 1/3: ${error}`, steps };
+    }
+    
+    console.log(`   ✅ Configuración válida`);
+    steps[0].status = 'success';
+    steps[0].message = `Repositorio: ${owner}/${repo}`;
+    onProgress?.(steps);
+
+    // === PASO 2: DESCARGA ===
+    console.log(`   2️⃣  Obteniendo release desde GitHub...`);
+    steps[1].status = 'running';
+    onProgress?.(steps);
+    
+    const releaseInfo = await getLatestReleaseAsset(owner, repo, githubToken, app.versionType, app.prNumber);
+    if (!releaseInfo) {
+      const versionLabel = app.versionType === 'pullrequest' 
+        ? `Pull Request #${app.prNumber}` 
+        : (app.versionType === 'prerelease' ? 'prerelease' : 'release');
+      const error = `No se encontró ${versionLabel} disponible en GitHub`;
+      console.error(`   ❌ ${error}`);
+      steps[1].status = 'error';
+      steps[1].message = error;
+      onProgress?.(steps);
+      return { success: false, error: `Paso 2/3: ${error}`, steps };
+    }
+
+    console.log(`   ✅ Release encontrado: ${releaseInfo.version}`);
+    console.log(`   📥 Descargando archivo .app...`);
+    steps[1].message = `Descargando v${releaseInfo.version}...`;
+    onProgress?.(steps);
+    
+    const appBuffer = await downloadAndExtractApp(releaseInfo.downloadUrl, githubToken);
+    if (!appBuffer) {
+      const error = 'Error descargando archivo .app desde GitHub';
+      console.error(`   ❌ ${error}`);
+      steps[1].status = 'error';
+      steps[1].message = error;
+      onProgress?.(steps);
+      return { success: false, error: `Paso 2/3: ${error}`, steps };
+    }
+
+    console.log(`   ✅ Descargado: ${(appBuffer.byteLength / 1024).toFixed(2)} KB`);
+    steps[1].status = 'success';
+    steps[1].message = `${(appBuffer.byteLength / 1024).toFixed(2)} KB descargados`;
+    onProgress?.(steps);
+
+    // === PASO 3: INSTALACIÓN ===
+    console.log(`   3️⃣  Instalando en Business Central...`);
+    steps[2].status = 'running';
+    onProgress?.(steps);
+    
+    const installResult = await installAppInBC(
+      environmentUrl,
+      authContext,
+      {
+        id: app.id,
+        name: app.name,
+        publisher: app.publisher,
+        version: app.version,
+      },
+      appBuffer,
+      app.installMode || 'Add'
+    );
+
+    // Verificar explícitamente que el resultado sea exitoso
+    if (!installResult) {
+      const error = 'No se recibió respuesta de la instalación';
+      console.error(`   ❌ ERROR EN INSTALACIÓN`);
+      console.error(`   💥 ${error}`);
+      console.log('━'.repeat(80));
+      
+      steps[2].status = 'error';
+      steps[2].message = error;
+      onProgress?.(steps);
+      return { success: false, error: `Paso 3/3: ${error}`, steps };
+    }
+
+    if (installResult.success === true && !installResult.error) {
+      console.log(`   ✅ ¡INSTALADO EXITOSAMENTE!`);
+      console.log(`   📌 Versión: ${releaseInfo.version}`);
+      if (installResult.operationId) {
+        console.log(`   🔄 Operation ID: ${installResult.operationId}`);
+      }
+      console.log('━'.repeat(80));
+      
+      steps[2].status = 'success';
+      steps[2].message = installResult.operationId 
+        ? `Instalado (Op: ${installResult.operationId.substring(0, 8)}...)`
+        : 'Instalado correctamente';
+      onProgress?.(steps);
+      
+      return { 
+        success: true, 
+        version: releaseInfo.version,
+        steps 
+      };
+    } else {
+      const error = installResult.error || 'Error desconocido al instalar en BC';
+      console.error(`   ❌ ERROR EN INSTALACIÓN`);
+      console.error(`   💥 ${error}`);
+      console.log('━'.repeat(80));
+      
+      steps[2].status = 'error';
+      steps[2].message = error;
+      onProgress?.(steps);
+      return { success: false, error: `Paso 3/3: ${error}`, steps };
+    }
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+    console.error(`   ❌ EXCEPCIÓN NO CONTROLADA`);
+    console.error(`   💥 ${errorMessage}`);
+    console.log('━'.repeat(80));
+    
+    // Marcar el paso actual como error
+    const currentStepIndex = steps.findIndex(s => s.status === 'running');
+    if (currentStepIndex >= 0) {
+      steps[currentStepIndex].status = 'error';
+      steps[currentStepIndex].message = errorMessage;
+    }
+    onProgress?.(steps);
+    
+    return { success: false, error: `Error inesperado: ${errorMessage}`, steps };
+  }
+}
